@@ -77,7 +77,7 @@ def extract_loras(prompt: str, lora_files: FileCollection):
 
     def replace(match: re.Match[str]):
         lora_file = None
-        input = match[1].lower()
+        input = match[1].strip().replace("\\", "/").lower()
 
         for file in lora_files:
             if file.source is not FileSource.unavailable:

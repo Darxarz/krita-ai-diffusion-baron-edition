@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from ai_diffusion.backend.client import ClientEvent, ClientMessage, MissingResources
 from ai_diffusion.backend.network import NetworkError
 from ai_diffusion.backend.resources import Arch
@@ -38,7 +40,7 @@ async def test_connect_success_and_disconnect():
     client = MockClient()
 
     states: list[ConnectionState] = []
-    conn.state_changed.connect(lambda s: states.append(s))
+    conn.state_changed.connect(states.append)
 
     conn.connect(client)
     await _wait_for_state(conn, ConnectionState.connecting, ConnectionState.disconnected)
@@ -56,6 +58,58 @@ async def test_connect_success_and_disconnect():
     assert ConnectionState.disconnected in states
 
 
+@pytest.mark.parametrize(
+    "state", [ConnectionState.disconnected, ConnectionState.auth_pending, ConnectionState.error]
+)
+@qtapp
+async def test_reconnect_replaces_listener_even_when_ui_state_changed(state):
+    conn = Connection()
+    old, new = MockClient(), MockClient()
+    received = []
+    conn.message_received.connect(received.append)
+    try:
+        await conn._connect(old)
+        await asyncio.sleep(0)
+        conn.state = state
+        await conn._connect(new)
+        new.push(ClientMessage(ClientEvent.finished, "new-job", 1))
+        for _ in range(20):
+            await asyncio.sleep(0)
+        assert old.disconnect_count == 1
+        assert [msg.job_id for msg in received] == ["new-job"]
+        assert conn.client is new
+    finally:
+        await conn.disconnect()
+
+
+@qtapp
+async def test_failed_listener_can_be_replaced():
+    class FailingClient(MockClient):
+        async def listen(self):
+            yield ClientMessage(ClientEvent.progress, "old-job", 0.5)
+            raise RuntimeError("Listener failed")
+
+    conn = Connection()
+    old, new = FailingClient(), MockClient()
+    received = []
+    conn.message_received.connect(received.append)
+    try:
+        await conn._connect(old)
+        for _ in range(10):
+            await asyncio.sleep(0)
+        assert conn.state is ConnectionState.error
+        assert "Listener failed" in conn.error
+        await conn._connect(new)
+        new.push(ClientMessage(ClientEvent.finished, "new-job", 1))
+        for _ in range(20):
+            await asyncio.sleep(0)
+        assert conn.client is new
+        assert received[-1].job_id == "new-job"
+        assert old.disconnect_count == 1
+    finally:
+        await conn.disconnect()
+
+
 @qtapp
 async def test_connect_network_error():
     """Connection.connect with NetworkError ends up in error state."""
@@ -64,7 +118,7 @@ async def test_connect_network_error():
     client.connect_error = NetworkError(0, "Connection refused", "ws://mock")
 
     states: list[ConnectionState] = []
-    conn.state_changed.connect(lambda s: states.append(s))
+    conn.state_changed.connect(states.append)
 
     conn.connect(client)
     await _wait_for_state(conn, ConnectionState.connecting, ConnectionState.disconnected)
@@ -85,7 +139,7 @@ async def test_connect_missing_resources():
     client.connect_error = missing
 
     states: list[ConnectionState] = []
-    conn.state_changed.connect(lambda s: states.append(s))
+    conn.state_changed.connect(states.append)
 
     conn.connect(client)
     await _wait_for_state(conn, ConnectionState.connecting, ConnectionState.disconnected)
@@ -111,10 +165,10 @@ async def test_listen_messages_and_reconnect():
     ]
 
     received: list[ClientMessage] = []
-    conn.message_received.connect(lambda msg: received.append(msg))
+    conn.message_received.connect(received.append)
 
     errors: list[str] = []
-    conn.error_changed.connect(lambda e: errors.append(e))
+    conn.error_changed.connect(errors.append)
 
     conn.connect(client)
     await _wait_for_state(conn, ConnectionState.connecting, ConnectionState.disconnected)

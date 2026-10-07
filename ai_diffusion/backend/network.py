@@ -73,13 +73,15 @@ class Request(NamedTuple):
     url: str
     future: asyncio.Future
     buffer: QBuffer | None = None
+    max_bytes: int | None = None
 
 
 Headers = list[tuple[str, str]]
 
 
 class RequestManager:
-    def __init__(self):
+    def __init__(self, same_origin_only=False):
+        self._same_origin_only = same_origin_only
         self._net = QNetworkAccessManager()
         self._net.finished.connect(self._finished)
         self._net.sslErrors.connect(self._handle_ssl_errors)
@@ -97,6 +99,11 @@ class RequestManager:
     def _prepare_request(self, url: str, timeout: float | None = None, bearer: str | None = None):
         request = QNetworkRequest(QUrl(url))
         request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
+        if self._same_origin_only:
+            request.setAttribute(
+                QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                QNetworkRequest.RedirectPolicy.SameOriginRedirectPolicy,
+            )
         bearer_token = bearer or self._bearer_token
         if bearer_token:
             request.setRawHeader(b"Authorization", f"Bearer {bearer_token}".encode())
@@ -140,6 +147,7 @@ class RequestManager:
         assert reply is not None, f"Network request for {url} failed: reply is None"
         future = asyncio.get_running_loop().create_future()
         self._requests[reply] = Request(url, future)
+        future.add_done_callback(lambda task: reply.abort() if task.cancelled() else None)
         return future
 
     def get(self, url: str, timeout: float | None = None, bearer: str | None = None):
@@ -151,7 +159,13 @@ class RequestManager:
     def put(self, url: str, data: QByteArray | bytes):
         return self.http("PUT", url, data)
 
-    async def upload(self, url: str, data: QByteArray | bytes, sha256: str | None = None):
+    async def upload(
+        self,
+        url: str,
+        data: QByteArray | bytes,
+        sha256: str | None = None,
+        bearer: str | None = None,
+    ):
         self._cleanup()
         if isinstance(data, bytes):
             data = QByteArray(data)
@@ -159,6 +173,12 @@ class RequestManager:
 
         request = QNetworkRequest(QUrl(url))
         request.setAttribute(QNetworkRequest.Attribute.FollowRedirectsAttribute, True)
+        if bearer:
+            request.setRawHeader(b"Authorization", f"Bearer {bearer}".encode())
+            request.setAttribute(
+                QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                QNetworkRequest.RedirectPolicy.SameOriginRedirectPolicy,
+            )
         if sha256:
             request.setRawHeader(b"x-amz-checksum-sha256", sha256.encode("utf-8"))
         request.setHeader(
@@ -182,7 +202,7 @@ class RequestManager:
                 yield (len(data), len(data))
                 break
 
-    def download(self, url: str, timeout: float | None = None):
+    def download(self, url: str, timeout: float | None = None, max_bytes: int | None = None):
         self._cleanup()
         request = self._prepare_request(url, timeout)
         reply = self._net.get(request)
@@ -191,12 +211,19 @@ class RequestManager:
         buffer = QBuffer()
         buffer.open(QBuffer.OpenModeFlag.WriteOnly)
 
-        def write(bytes_received, bytes_total):
-            buffer.write(reply.readAll())
+        def write():
+            chunk = reply.readAll()
+            if max_bytes is not None and buffer.size() + chunk.size() > max_bytes:
+                if not future.done():
+                    future.set_exception(ValueError("Download exceeds the size limit"))
+                reply.abort()
+            else:
+                buffer.write(chunk)
 
         future = asyncio.get_running_loop().create_future()
-        tracker = Request(url, future, buffer)
-        reply.downloadProgress.connect(write)
+        tracker = Request(url, future, buffer, max_bytes)
+        reply.readyRead.connect(write)
+        future.add_done_callback(lambda task: reply.abort() if task.cancelled() else None)
         self._requests[reply] = tracker
         return future
 
@@ -215,11 +242,13 @@ class RequestManager:
             code = reply.error()  # type: ignore (bug in PyQt5-stubs)
             tracker = self._requests[reply]
             future = tracker.future
-            if future.cancelled():
+            if future.done():
                 return  # operation was cancelled, discard result
             if code == QNetworkReply.NetworkError.NoError:
                 if tracker.buffer is not None:
                     tracker.buffer.write(reply.readAll())
+                    if tracker.max_bytes is not None and tracker.buffer.size() > tracker.max_bytes:
+                        raise ValueError("Download exceeds the size limit")
                     future.set_result(tracker.buffer.data())
                 else:
                     content_type = reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader)

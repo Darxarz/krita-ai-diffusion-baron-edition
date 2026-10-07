@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Sequence
 from enum import Enum
 from itertools import chain
@@ -88,6 +89,7 @@ class Arch(Enum):
     qwen_e = "Qwen Edit"
     qwen_e_p = "Qwen Edit Plus"
     qwen_l = "Qwen Layered"
+    qwen2 = "Qwen Image 2.1"
     anima = "Anima"
     zimage = "Z-Image"
     ernie = "ERNIE Image"
@@ -130,6 +132,10 @@ class Arch(Enum):
             return Arch.qwen_l
         if string == "qwen-image":
             return Arch.qwen
+        if string in {"qwen-image21", "qwen2"}:
+            return Arch.qwen2
+        if string == "unknown" and Arch.is_qwen21_filename(filename):
+            return Arch.qwen2
         if string == "anima" or (string == "unknown" and "anima" in filename):
             return Arch.anima
         if string in {"z-image", "zimage"}:
@@ -139,6 +145,13 @@ class Arch(Enum):
         if string == "krea2":
             return Arch.krea2
         return None
+
+    @staticmethod
+    def is_qwen21_filename(filename: str):
+        name = filename.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        return bool(re.match(r"qwen[-_]image[-_](?:2[._-]1|21)(?:[._-]|$)", name)) and not any(
+            part in name for part in ("vae", "controlnet", "_pe_", "-pe-")
+        )
 
     @staticmethod
     def from_checkpoint_name(checkpoint: str):
@@ -196,12 +209,16 @@ class Arch(Enum):
         return self not in [Arch.flux, Arch.flux_k]
 
     @property
+    def supports_alpha(self):
+        return self is Arch.qwen2
+
+    @property
     def is_edit(self):  # edit models make changes to input images
         return self in [Arch.flux_k, Arch.qwen_e, Arch.qwen_e_p, Arch.qwen_l]
 
     @property
     def supports_edit(self):  # includes text-to-image models that can also edit
-        return self.is_edit or self.is_flux2
+        return self.is_edit or self.is_flux2 or self in [Arch.qwen2, Arch.krea2]
 
     @property
     def is_sdxl_like(self):
@@ -239,6 +256,8 @@ class Arch(Enum):
                 return ["t5"]
             case Arch.qwen | Arch.qwen_e | Arch.qwen_e_p | Arch.qwen_l:
                 return ["qwen"]
+            case Arch.qwen2:
+                return ["qwen_3vl_8b"]
             case Arch.anima:
                 return ["qwen_3_06b"]
             case Arch.zimage:
@@ -267,6 +286,7 @@ class Arch(Enum):
             Arch.qwen_e,
             Arch.qwen_e_p,
             Arch.qwen_l,
+            Arch.qwen2,
             Arch.anima,
             Arch.zimage,
             Arch.ernie,
@@ -414,7 +434,9 @@ class ControlMode(Enum):
 
     def can_substitute_instruction(self, arch: Arch):
         """True if this control mode is covered by instruction-following edit models."""
-        if arch.is_flux2:
+        if arch is Arch.krea2:
+            return self in [ControlMode.style, ControlMode.composition, ControlMode.face]
+        if arch.is_flux2 or arch is Arch.qwen2:
             return self in [
                 ControlMode.style,
                 ControlMode.composition,
@@ -818,6 +840,7 @@ search_paths: dict[str, list[str]] = {
     resource_id(ResourceKind.text_encoder, Arch.all, "qwen_3_06b"): ["qwen_3_06b", "qwen3-06b", "qwen3_06b"],
     resource_id(ResourceKind.text_encoder, Arch.all, "ministral"): ["ministral-3-3b", "ministral"],
     resource_id(ResourceKind.text_encoder, Arch.all, "qwen_3vl_4b"): ["qwen3vl_4b", "qwen_3vl_4b", "qwen3-vl-4b"],
+    resource_id(ResourceKind.text_encoder, Arch.all, "qwen_3vl_8b"): ["qwen3vl_8b", "qwen_3vl_8b", "qwen3-vl-8b"],
     resource_id(ResourceKind.vae, Arch.sd15, "default"): ["vae-ft-mse-840000-ema"],
     resource_id(ResourceKind.vae, Arch.sdxl, "default"): ["sdxl_vae"],
     resource_id(ResourceKind.vae, Arch.illu, "default"): ["sdxl_vae"],
@@ -832,6 +855,7 @@ search_paths: dict[str, list[str]] = {
     resource_id(ResourceKind.vae, Arch.qwen_e, "default"): ["qwen"],
     resource_id(ResourceKind.vae, Arch.qwen_e_p, "default"): ["qwen"],
     resource_id(ResourceKind.vae, Arch.qwen_l, "default"): ["qwen_image_layered_vae"],
+    resource_id(ResourceKind.vae, Arch.qwen2, "default"): ["qwen_image_2.1_vae"],
     resource_id(ResourceKind.vae, Arch.anima, "default"): ["qwen_image"],
     resource_id(ResourceKind.vae, Arch.zimage, "default"): ["z-image", "flux-", "flux_", "flux/", "flux1", "ae.s"],
     resource_id(ResourceKind.vae, Arch.ernie, "default"): ["flux2"],
@@ -845,6 +869,7 @@ required_resource_ids = {
     ResourceId(ResourceKind.text_encoder, Arch.qwen, "qwen"),
     ResourceId(ResourceKind.text_encoder, Arch.qwen_e, "qwen"),
     ResourceId(ResourceKind.text_encoder, Arch.qwen_e_p, "qwen"),
+    ResourceId(ResourceKind.text_encoder, Arch.qwen2, "qwen_3vl_8b"),
     ResourceId(ResourceKind.text_encoder, Arch.anima, "qwen_3_06b"),
     ResourceId(ResourceKind.text_encoder, Arch.zimage, "qwen_3_4b"),
     ResourceId(ResourceKind.text_encoder, Arch.flux2_4b, "qwen_3_4b"),
@@ -865,6 +890,7 @@ required_resource_ids = {
     ResourceId(ResourceKind.vae, Arch.qwen, "default"),
     ResourceId(ResourceKind.vae, Arch.qwen_e, "default"),
     ResourceId(ResourceKind.vae, Arch.qwen_e_p, "default"),
+    ResourceId(ResourceKind.vae, Arch.qwen2, "default"),
     ResourceId(ResourceKind.vae, Arch.anima, "default"),
     ResourceId(ResourceKind.vae, Arch.zimage, "default"),
     ResourceId(ResourceKind.vae, Arch.flux2_4b, "default"),

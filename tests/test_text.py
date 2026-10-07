@@ -1,3 +1,5 @@
+import pytest
+
 from ai_diffusion.backend.api import ConditioningInput, ControlInput, LoraInput
 from ai_diffusion.backend.resources import ControlMode
 from ai_diffusion.files import File, FileCollection
@@ -162,6 +164,20 @@ def test_extract_loras():
         extract_loras("a ship <lora:lora-one:test-invalid-str>", loras)
     except Exception as e:
         assert str(e).startswith("Invalid LoRA strength")
+
+
+@pytest.mark.parametrize(
+    "name", ["Artists/Boxerhole_Style_PonySDXL ", " Artists\\Boxerhole_Style_PonySDXL"]
+)
+def test_extract_lora_path_with_surrounding_whitespace(name):
+    loras = FileCollection()
+    loras.add(File.remote("Artists\\Boxerhole_Style_PonySDXL.safetensors"))
+    assert extract_loras(f"a portrait <lora:{name}:0.67>", loras) == (
+        "a portrait",
+        [LoraInput(loras[0].id, 0.67)],
+    )
+    with pytest.raises(Exception, match="LoRA not found"):
+        extract_loras("<lora:missing:1>", loras)
 
 
 def test_extract_loras_meta():

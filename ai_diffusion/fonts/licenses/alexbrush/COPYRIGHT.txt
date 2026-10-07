@@ -1,0 +1,1 @@
+Copyright 2011 The Alex Brush Project Authors (https://github.com/googlefonts/alex-brush)

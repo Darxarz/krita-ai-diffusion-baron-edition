@@ -3,6 +3,11 @@
     "version": 2,
     "architecture": "auto",
     "checkpoints": [
+        "Krea2/krea2Turbo18For_v2.safetensors",
+        "Krea2/homofidelisKrea2NSFW_v10TURBOINT8Convrot.safetensors",
+        "Krea2/krea2CatTower_v10TurboINT8Convrot.safetensors",
+        "Krea2/kromaW4a8_v02TurboW4a8Xl.safetensors",
+        "Krea2/raySemiReal_krea2TurboV1Nsfw.safetensors",
         "krea2_turbo_bf16.safetensors",
         "krea2_turbo_int8_convrot.safetensors",
         "krea2_turbo_fp8_scaled.safetensors",

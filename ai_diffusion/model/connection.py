@@ -19,6 +19,8 @@ from ..backend.client import (
 from ..backend.cloud_client import CloudClient
 from ..backend.comfy_client import ComfyClient
 from ..backend.network import NetworkError
+from ..backend.orchestrion_client import OrchestrionAPI, OrchestrionClient, protect_token
+from ..localization import Localization
 from ..localization import translate as _
 from ..settings import PerformancePreset, ServerMode, Settings, settings
 from .properties import ObservableProperties, Property
@@ -49,6 +51,7 @@ class Connection(QObject, ObservableProperties):
     models_changed = pyqtSignal()
     message_received = pyqtSignal(ClientMessage)
     workflow_published = pyqtSignal(str)
+    sign_in_code_changed = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -57,6 +60,8 @@ class Connection(QObject, ObservableProperties):
         self._task: asyncio.Task | None = None
         self._workflows: dict[str, dict] = {}
         self._temporary_disconnect = False
+        self._auth_task: asyncio.Task | None = None
+        self.sign_in_code = ""
         self.error_kind = ""
         self.missing_resources: MissingResources | None = None
 
@@ -88,10 +93,51 @@ class Connection(QObject, ObservableProperties):
     def sign_in(self):
         eventloop.run(self._sign_in(CloudClient.default_api_url))
 
+    def sign_in_orchestrion(self):
+        self.cancel_sign_in()
+        self._auth_task = eventloop.run(self._sign_in_orchestrion())
+
+    def cancel_sign_in(self):
+        if self._auth_task:
+            self._auth_task.cancel()
+            self._auth_task = None
+        self.sign_in_code = ""
+        self.sign_in_code_changed.emit("")
+        if self.state in (ConnectionState.auth_pending, ConnectionState.auth_requesting):
+            self.state = ConnectionState.disconnected
+            self._update_state()
+
+    async def _sign_in_orchestrion(self):
+        self.state = ConnectionState.auth_requesting
+        self.error = ""
+        try:
+            api = OrchestrionAPI(settings.orchestrion_url)
+            stream = api.sign_in()
+            data = await anext(stream)
+            self.sign_in_code = data["user_code"]
+            self.sign_in_code_changed.emit(self.sign_in_code)
+            self.state = ConnectionState.auth_pending
+            QDesktopServices.openUrl(
+                QUrl(api.url + "/connect/krita?lang=" + Localization.current.id)
+            )
+            token = await anext(stream)
+            settings.orchestrion_token = protect_token(token)
+            settings.save()
+            self.state = ConnectionState.disconnected
+            await self._connect(OrchestrionClient(api.url, token))
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            self.error = str(e)
+            self.state = ConnectionState.auth_error
+        finally:
+            self.sign_in_code = ""
+            self.sign_in_code_changed.emit("")
+
     async def _connect(self, client: Client):
-        if self.state is ConnectionState.connecting:
+        if self.state in (ConnectionState.connecting, ConnectionState.discover_models):
             return
-        if self.state is ConnectionState.connected:
+        if self._client is not None or self._task is not None:
             await self.disconnect()
         self.error = ""
         self.error_kind = ""
@@ -107,8 +153,7 @@ class Connection(QObject, ObservableProperties):
             apply_performance_preset(settings, client.device_info)
 
             self._client = client
-            if self._task is None:
-                self._task = eventloop._loop.create_task(self._handle_messages())
+            self._task = eventloop._loop.create_task(self._handle_messages(client))
             self.state = ConnectionState.connected
             self.models_changed.emit()
         except NetworkError as e:
@@ -116,7 +161,11 @@ class Connection(QObject, ObservableProperties):
             self.error_kind = "network"
             self.state = ConnectionState.error
             if e.status == 401:  # Unauthorized
-                settings.access_token = ""
+                if isinstance(client, OrchestrionClient):
+                    settings.orchestrion_token = ""
+                else:
+                    settings.access_token = ""
+                settings.save()
                 self._update_state()
         except MissingResources as e:
             self.error = _(
@@ -139,6 +188,17 @@ class Connection(QObject, ObservableProperties):
                 return CloudClient(CloudClient.default_api_url, settings.access_token)
             case ServerMode.external | ServerMode.managed:
                 return ComfyClient(settings.server_url, settings.access_token)
+            case ServerMode.orchestrion:
+                if not settings.orchestrion_token:
+                    self.state = ConnectionState.auth_missing
+                    return None
+                try:
+                    token = protect_token(settings.orchestrion_token, decrypt=True)
+                    return OrchestrionClient(settings.orchestrion_url, token)
+                except ValueError as e:
+                    self.error = str(e)
+                    self.state = ConnectionState.auth_error
+                    return None
             case _:
                 raise ValueError(f"Invalid server mode: {settings.server_mode}")
 
@@ -147,9 +207,10 @@ class Connection(QObject, ObservableProperties):
 
     async def disconnect(self):  # type: ignore (hides QObject.disconnect)
         if self._task is not None:
-            self._task.cancel()
-            await self._task
+            task = self._task
             self._task = None
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
         self._client = None
         self.error = ""
@@ -189,11 +250,9 @@ class Connection(QObject, ObservableProperties):
     def workflows(self):
         return self._workflows
 
-    async def _handle_messages(self):
+    async def _handle_messages(self, client: Client):
         try:
-            client = self._client
             self._temporary_disconnect = False
-            assert client is not None
 
             async with client:
                 async for msg in client.listen():
@@ -206,6 +265,10 @@ class Connection(QObject, ObservableProperties):
                         self.error = _("Error handling server message: ") + str(e)
         except asyncio.CancelledError:
             pass  # shutdown
+        except Exception as e:
+            util.client_logger.exception("Server message listener stopped")
+            self.error = _("Error communicating with server: ") + str(e)
+            self.state = ConnectionState.error
 
     def _handle_message(self, msg: ClientMessage):
         match msg:
@@ -226,28 +289,30 @@ class Connection(QObject, ObservableProperties):
                 self.message_received.emit(msg)
 
     def _update_state(self):
-        if (
-            self.state in [ConnectionState.disconnected, ConnectionState.error]
-            and settings.server_mode is ServerMode.cloud
-            and settings.access_token == ""
+        if self.state in [ConnectionState.disconnected, ConnectionState.error] and (
+            (settings.server_mode is ServerMode.cloud and not settings.access_token)
+            or (settings.server_mode is ServerMode.orchestrion and not settings.orchestrion_token)
         ):
             self.state = ConnectionState.auth_missing
-        elif (
-            self.state in [ConnectionState.auth_missing, ConnectionState.auth_error]
-            and settings.server_mode is not ServerMode.cloud
-        ):
+        elif self.state in [
+            ConnectionState.auth_missing,
+            ConnectionState.auth_error,
+        ] and settings.server_mode not in (ServerMode.cloud, ServerMode.orchestrion):
             self.state = ConnectionState.disconnected
 
     def _handle_settings_changed(self, key: str, value: object):
         if key == "server_mode":
+            self.cancel_sign_in()
             client_is_cloud = isinstance(self._client, CloudClient)
             mode_is_cloud = settings.server_mode is ServerMode.cloud
-            if client_is_cloud != mode_is_cloud:
+            client_is_orchestrion = isinstance(self._client, OrchestrionClient)
+            mode_is_orchestrion = settings.server_mode is ServerMode.orchestrion
+            if client_is_cloud != mode_is_cloud or client_is_orchestrion != mode_is_orchestrion:
                 self.error = ""
                 eventloop.run(self.disconnect())
             self._update_state()
 
-        elif key == "access_token":
+        elif key in ("access_token", "orchestrion_token"):
             self._update_state()
 
 

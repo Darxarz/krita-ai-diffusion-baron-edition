@@ -3,9 +3,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension, Krita, Window  # type: ignore
+from PyQt5.QtCore import QStandardPaths
 from PyQt5.QtWidgets import QAction
 
 from . import __version__, eventloop
+from .fonts import install_krita_fonts, load_fonts
+from .localization import translate as _
 from .model.model import Workspace
 from .model.root import root
 from .settings import settings
@@ -43,6 +46,11 @@ class AIToolsExtension(Extension):
 
         eventloop.setup()
         settings.load()
+        font_resource_directory = Krita.instance().readSetting(
+            "", "ResourceDirectory", QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        )
+        install_krita_fonts(Path(font_resource_directory))
+        log.info(f"Loaded {len(load_fonts())} bundled font families")
         root.init()
         self._settings_dialog = SettingsDialog(root.server)
 
@@ -57,8 +65,8 @@ class AIToolsExtension(Extension):
         root.server.terminate()
         eventloop.stop()
 
-    def _create_action(self, window: Window, name: str, func: Callable[[], None]):
-        action = window.createAction(f"ai_diffusion_{name}", "", "")
+    def _create_action(self, window: Window, name: str, func: Callable[[], None], text=""):
+        action = window.createAction(f"ai_diffusion_{name}", text, "")
         action.triggered.connect(func)
         self._actions[name] = action
 
@@ -79,6 +87,12 @@ class AIToolsExtension(Extension):
             window, "switch_workspace_upscaling", actions.set_workspace(Workspace.upscaling)
         )
         self._create_action(window, "switch_workspace_live", actions.set_workspace(Workspace.live))
+        self._create_action(
+            window,
+            "switch_workspace_background",
+            actions.set_workspace(Workspace.background),
+            _("Separate background"),
+        )
         self._create_action(
             window, "switch_workspace_graph", actions.set_workspace(Workspace.custom)
         )

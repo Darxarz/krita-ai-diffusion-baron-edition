@@ -26,3 +26,12 @@ venv
 bin
 lib
 pyvenv.cfg
+# Local verification and personal workspaces
+artifacts/
+.codex-remote-attachments/
+extracted/
+build/
+.venv/
+*.log
+*.keystore
+.env*

@@ -33,6 +33,7 @@ class JobKind(Enum):
     animation_batch = 4  # single frame as part of an animation batch
     animation_frame = 5  # just a single frame
     animation = 6  # full animation in one job
+    background_removal = 7
 
 
 @dataclass
@@ -153,9 +154,11 @@ class JobQueue(QObject):
     job_discarded = pyqtSignal(Job)
     result_used = pyqtSignal(Item)
     result_discarded = pyqtSignal(Item)
+    history_cleared = pyqtSignal()
 
     def __init__(self):
         super().__init__()
+        self.preserve_evicted_history = False
         self._entries: deque[Job] = deque()
         self._selection: list[JobQueue.Item] = []
         self._previous_selection: JobQueue.Item | None = None
@@ -230,14 +233,15 @@ class JobQueue(QObject):
         elif self._previous_selection is not None and self.has_item(self._previous_selection):
             self.selection = [self._previous_selection]
 
-    def _discard_job(self, job: Job):
+    def _discard_job(self, job: Job, *, evicted=False):
         self._entries.remove(job)
         self._memory_usage -= job.results.size / (1024**2)
-        self.job_discarded.emit(job)
+        if not (evicted and self.preserve_evicted_history):
+            self.job_discarded.emit(job)
 
     def prune(self, keep: Job):
         while self._memory_usage > settings.history_size and self._entries[0] != keep:
-            self._discard_job(self._entries[0])
+            self._discard_job(self._entries[0], evicted=True)
 
     def discard(self, job_id: str, index: int):
         job = ensure(self.find(job_id))
@@ -258,6 +262,7 @@ class JobQueue(QObject):
         ]
         for job in jobs_to_discard:
             self._discard_job(job)
+        self.history_cleared.emit()
 
     def any_executing(self):
         return any(j.state is JobState.executing for j in self._entries)

@@ -1,0 +1,1 @@
+Copyright 2022 The PinyonScript Project Authors (https://github.com/SorkinType/Pinyon)

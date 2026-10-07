@@ -1,0 +1,367 @@
+{
+  "source": "services/a1111PromptMode.js",
+  "sha256": "0edba3b39fd9b3025549be027da1a891de049b0ceb4b2186490e491549869faa",
+  "graph": {
+    "1": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "test.safetensors"
+      }
+    },
+    "2": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "1",
+          1
+        ],
+        "text": "(watercolor:1.3), [night:day:0.5] AND portrait BREAK [soft]"
+      }
+    },
+    "3": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "1",
+          1
+        ],
+        "text": "blur AND grain"
+      }
+    },
+    "4": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "2",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 27
+      }
+    },
+    "5": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "1",
+          1
+        ],
+        "text": "[a|b]"
+      }
+    },
+    "6": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 12
+      }
+    }
+  },
+  "cpu": {
+    "1": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "test.safetensors"
+      }
+    },
+    "2": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "(watercolor:1.3), [night:day:0.5] AND portrait BREAK [soft]",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": true,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 27
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "3": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "blur AND grain",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": false,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 27
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "4": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "2",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 27
+      }
+    },
+    "5": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "[a|b]",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": true,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 12
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "6": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 12
+      }
+    }
+  },
+  "gpu": {
+    "1": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "test.safetensors"
+      }
+    },
+    "2": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "(watercolor:1.3), [night:day:0.5] AND portrait BREAK [soft]",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": true,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 27
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "3": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "blur AND grain",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": false,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 27
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "4": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "a1111_settings_0",
+          0
+        ],
+        "positive": [
+          "2",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 27
+      }
+    },
+    "5": {
+      "class_type": "smZ CLIPTextEncode",
+      "inputs": {
+        "text": "[a|b]",
+        "clip": [
+          "1",
+          1
+        ],
+        "parser": "A1111",
+        "mean_normalization": true,
+        "multi_conditioning": true,
+        "use_old_emphasis_implementation": false,
+        "with_SDXL": false,
+        "ascore": 6,
+        "width": 1024,
+        "height": 1024,
+        "crop_w": 0,
+        "crop_h": 0,
+        "target_width": 1024,
+        "target_height": 1024,
+        "text_g": "",
+        "text_l": "",
+        "smZ_steps": 12
+      },
+      "_meta": {
+        "title": "Prompt [A1111]"
+      }
+    },
+    "6": {
+      "class_type": "KSamplerAdvanced",
+      "inputs": {
+        "model": [
+          "a1111_settings_0",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "steps": 12
+      }
+    },
+    "a1111_settings_0": {
+      "class_type": "smZ Settings",
+      "inputs": {
+        "*": [
+          "1",
+          0
+        ],
+        "extra": "{\"show_headings\":true,\"show_descriptions\":false,\"mode\":\"*\"}",
+        "Prompt word wrap length limit": 20,
+        "enable_emphasis": true,
+        "RNG": "gpu",
+        "disable_nan_check": true,
+        "eta": 1,
+        "s_churn": 0,
+        "s_tmin": 0,
+        "s_tmax": 0,
+        "s_noise": 1,
+        "ENSD": 31337,
+        "skip_early_cond": 0,
+        "sgm_noise_multiplier": false,
+        "upcast_sampling": true,
+        "NGMS": 0,
+        "NGMS all steps": false,
+        "pad_cond_uncond": false,
+        "batch_cond_uncond": true,
+        "Use previous prompt editing timelines": true,
+        "Use CFGDenoiser": false,
+        "debug": false
+      },
+      "_meta": {
+        "title": "A1111 noise (GPU RNG, ENSD 31337)"
+      }
+    }
+  }
+}

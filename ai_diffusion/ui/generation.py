@@ -56,6 +56,7 @@ from ..settings import settings
 from ..style import Styles
 from ..util import ensure, flatten, sequence_equal
 from . import theme
+from .orchestrion import OrchestrionBar
 from .region import RegionPromptWidget
 from .widget import (
     ErrorBox,
@@ -809,6 +810,9 @@ class GenerationWidget(QWidget):
         actions_layout.addWidget(self.queue_button)
         layout.addLayout(actions_layout)
 
+        self.orchestrion_bar = OrchestrionBar(JobKind.diffusion, self)
+        layout.addWidget(self.orchestrion_bar)
+
         self.progress_bar = ProgressBar(self)
         layout.addWidget(self.progress_bar)
 
@@ -854,6 +858,7 @@ class GenerationWidget(QWidget):
             self.region_prompt.regions = model.active_regions
             self.custom_inpaint.model = model
             self.generate_button.model = model
+            self.orchestrion_bar.model = model
             self.queue_button.model = model
             self.progress_bar.model = model
             self.strength_slider.model = model

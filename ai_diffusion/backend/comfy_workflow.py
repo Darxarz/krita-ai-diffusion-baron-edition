@@ -65,6 +65,7 @@ class ComfyWorkflow:
         self.image_data: dict[str, bytes] = {}
         self.node_count = 0
         self.sample_count = 0
+        self.a1111_mode = False
         self.node_defs = node_defs or ComfyObjectInfo({})
         self._cache: dict[str, Output | Output2 | Output3 | Output4] = {}
         self._run_mode: ComfyRunMode = run_mode
@@ -351,6 +352,10 @@ class ComfyWorkflow:
         seed=-1,
         extent: Extent | None = None,
     ):
+        if self.a1111_mode:
+            return self.ksampler_advanced(
+                model, cond, latent_image, sampler, scheduler, steps, start_at_step, cfg, seed
+            )
         self.sample_count += steps - start_at_step
 
         if arch.is_flux_like:
@@ -694,6 +699,64 @@ class ComfyWorkflow:
             prompt=prompt,
         )
 
+    def text_encode_qwen2(
+        self,
+        clip: Output,
+        vae: Output | None,
+        images: list[Output] | None,
+        positive: str | Output,
+        negative: str | Output,
+    ):
+        images = [] if images is None else images
+        if len(images) > 10:
+            raise ValueError("Qwen Image 2.1 supports a maximum of 10 reference images")
+        args = {
+            "clip": clip,
+            "vae": vae,
+            "prompt": positive,
+            "negative_prompt": negative,
+            "resolution": 0,
+        }
+        for i, image in enumerate(images):
+            args[f"images.image_{i + 1}"] = image
+        positive, negative, latent = self.add("TextEncodeQwenImage21", 3, **args)
+        return ConditioningOutput(positive, negative), latent
+
+    def text_encode_krea2_edit(
+        self, clip: Output, images: list[Output], prompt: str | Output, grounding_px: int = 768
+    ):
+        args: dict[str, Input] = {"clip": clip, "prompt": prompt, "grounding_px": grounding_px}
+        if images:
+            args["image"] = images[0]
+        if len(images) > 1:
+            args["image_b"] = images[1]
+        return self.add_cached("Krea2EditGroundedEncode", 1, **args)
+
+    def patch_krea2_edit(
+        self,
+        model: Output,
+        vae: Output,
+        images: list[Output],
+        target_latent: Output,
+        fit_mode: str = "fit",
+        ref_boost: float = 1.0,
+    ):
+        # The pixel path overrides source_latent. Reuse the target for the required
+        # placeholder and pre-encode references before the sampler loads the model.
+        args: dict[str, Input] = {
+            "model": model,
+            "vae": vae,
+            "source_latent": target_latent,
+            "source_image": images[0],
+            "target_latent": target_latent,
+            "fit_mode": fit_mode,
+            "ref_boost": ref_boost,
+            "ref_boost_a": 1.0,
+        }
+        if len(images) > 1:
+            args["source_image_b"] = images[1]
+        return self.add("Krea2EditModelPatch", 1, **args)
+
     def background_region(self, conditioning: Output):
         return self.add("ETN_BackgroundRegion", 1, conditioning=conditioning)
 
@@ -999,8 +1062,11 @@ class ComfyWorkflow:
             height=bounds.height,
         )
 
-    def scale_image(self, image: Output, extent: Extent, method="lanczos"):
-        return self.add(
+    def scale_image(self, image: Output, extent: Extent, method="lanczos", *, preserve_alpha=False):
+        alpha = None
+        if preserve_alpha:
+            image, alpha = self.add("SplitImageWithAlpha", 2, image=image)
+        result = self.add(
             "ImageScale",
             1,
             image=image,
@@ -1009,6 +1075,9 @@ class ComfyWorkflow:
             upscale_method=method,
             crop="disabled",
         )
+        if alpha is not None:
+            result = self.add("JoinImageWithAlpha", 1, image=result, alpha=alpha)
+        return result
 
     def scale_control_image(self, image: Output, extent: Extent):
         return self.add(
@@ -1020,9 +1089,15 @@ class ComfyWorkflow:
             resize_mode="Just Resize",
         )
 
-    def upscale_image(self, upscale_model: Output, image: Output):
+    def upscale_image(self, upscale_model: Output, image: Output, *, preserve_alpha=False):
         self.sample_count += 4  # approx, actual number depends on model and image size
-        return self.add("ImageUpscaleWithModel", 1, upscale_model=upscale_model, image=image)
+        alpha = None
+        if preserve_alpha:
+            image, alpha = self.add("SplitImageWithAlpha", 2, image=image)
+        result = self.add("ImageUpscaleWithModel", 1, upscale_model=upscale_model, image=image)
+        if alpha is not None:
+            result = self.add("JoinImageWithAlpha", 1, image=result, alpha=alpha)
+        return result
 
     def invert_image(self, image: Output):
         return self.add("ImageInvert", 1, image=image)
@@ -1056,11 +1131,21 @@ class ComfyWorkflow:
         )
 
     def color_match(
-        self, target: Output, reference: Output, exclude_mask: Output | None = None, strength=1.0
+        self,
+        target: Output,
+        reference: Output,
+        exclude_mask: Output | None = None,
+        strength=1.0,
+        *,
+        preserve_alpha=False,
     ):
         if strength <= 0.0:
             return target
-        return self.add(
+        alpha = None
+        if preserve_alpha:
+            target, alpha = self.add("SplitImageWithAlpha", 2, image=target)
+            reference, _ = self.add("SplitImageWithAlpha", 2, image=reference)
+        result = self.add(
             "INPAINT_ColorMatch",
             1,
             target=target,
@@ -1068,6 +1153,9 @@ class ComfyWorkflow:
             exclude_mask=exclude_mask,
             strength=strength,
         )
+        if alpha is not None:
+            result = self.add("JoinImageWithAlpha", 1, image=result, alpha=alpha)
+        return result
 
     def crop_mask(self, mask: Output, bounds: Bounds):
         return self.add(
@@ -1138,7 +1226,13 @@ class ComfyWorkflow:
     def stabilize_mask(self, mask: Output, epsilon=0.01):
         return self.add("INPAINT_StabilizeMask", 1, mask=mask, epsilon=epsilon)
 
-    def apply_mask(self, image: Output, mask: Output):
+    def apply_mask(self, image: Output, mask: Output, *, preserve_alpha=False):
+        if preserve_alpha:
+            image, alpha = self.add("SplitImageWithAlpha", 2, image=image)
+            opacity = self.add("InvertMask", 1, mask=alpha)
+            mask = self.add(
+                "MaskComposite", 1, destination=opacity, source=mask, x=0, y=0, operation="multiply"
+            )
         return self.add("ETN_ApplyMaskToImage", 1, image=image, mask=mask)
 
     def translate(self, text: str | Output):
@@ -1149,11 +1243,11 @@ class ComfyWorkflow:
             return self.add("ETN_NSFWFilter", 1, image=image, sensitivity=sensitivity)
         return image
 
-    def load_image(self, image: Image | ImageCollection):
+    def load_image(self, image: Image | ImageCollection, alpha=False):
         if self._run_mode is ComfyRunMode.runtime:
-            return self._load_image_batch(image, self._load_image_runtime, self.batch_image)
+            return self._load_image_batch(image, self._load_image_runtime, self.batch_image, alpha)
         else:
-            return self._load_image_batch(image, self._load_image_cache, self.batch_image)
+            return self._load_image_batch(image, self._load_image_cache, self.batch_image, alpha)
 
     def load_mask(self, mask: Image | ImageCollection):
         if self._run_mode is ComfyRunMode.runtime:
@@ -1161,24 +1255,28 @@ class ComfyWorkflow:
         else:
             return self._load_image_batch(mask, self._load_mask_cache, self.batch_mask)
 
-    def _load_image_runtime(self, image: Image):
+    def _load_image_runtime(self, image: Image, alpha: bool):
+        assert not alpha, "Alpha not supported by ETN_InjectImage yet"
         return self.add("ETN_InjectImage", 1, id=self._add_image(image))
 
-    def _load_image_cache(self, image: Image):
-        return self.add("ETN_LoadImageCache", 2, id=self._add_image_hashed(image))[0]
+    def _load_image_cache(self, image: Image, alpha: bool):
+        rgb, a = self.add("ETN_LoadImageCache", 2, id=self._add_image_hashed(image))
+        return self.apply_mask(rgb, a) if alpha else rgb
 
-    def _load_mask_runtime(self, mask: Image):
+    def _load_mask_runtime(self, mask: Image, alpha: bool):
         return self.add("ETN_InjectMask", 1, id=self._add_image(mask))
 
-    def _load_mask_cache(self, mask: Image):
+    def _load_mask_cache(self, mask: Image, alpha: bool):
         return self.add("ETN_LoadImageCache", 2, id=self._add_image_hashed(mask))[1]
 
-    def _load_image_batch(self, images: Image | ImageCollection, loader, batcher) -> Output:
+    def _load_image_batch(
+        self, images: Image | ImageCollection, loader, batcher, alpha=False
+    ) -> Output:
         if isinstance(images, Image):
-            return loader(images)
+            return loader(images, alpha)
         result = None
         for image in images:
-            img = loader(image)
+            img = loader(image, alpha)
             result = img if result is None else batcher(result, img)
         assert result is not None
         return result

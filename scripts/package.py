@@ -99,7 +99,8 @@ def build_package():
     copytree(plugin_src, plugin_dst, ignore=ignore)
     copy(root / "scripts" / "download_models.py", plugin_dst)
     copy(root / "LICENSE", plugin_dst)
-    convert_markdown_to_html(root / "README.md", plugin_dst / "manual.html")
+    manual = "BARON_GUIDE_RU.md" if "-baron." in version else "README.md"
+    convert_markdown_to_html(root / manual, plugin_dst / "manual.html")
 
     make_archive(str(root / package_name), "zip", package_dir)
 

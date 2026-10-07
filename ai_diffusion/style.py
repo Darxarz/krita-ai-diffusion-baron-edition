@@ -97,6 +97,41 @@ class StyleSettings:
         _("Select an alternative style to use for for instruction-based editing"),
     )
 
+    krea2_reference_mode = Setting(
+        _("Krea 2: Reference purpose"), "identity", items=["identity", "style"]
+    )
+    krea2_ref_boost = Setting(
+        _("Krea 2: Reference fidelity"),
+        4.0,
+        _(
+            "Higher values preserve appearance, pose and background. Start with 2–6 for edits. Generation in a new scene limits this to 1 to let the composition change."
+        ),
+    )
+    krea2_grounding_px = Setting(
+        _("Krea 2: Reference detail"),
+        768,
+        _(
+            "768 is a balanced starting point. Try 1024 for face detail, or 512 for stronger scene changes."
+        ),
+    )
+
+    prompt_mode = Setting(
+        _("Prompt syntax"),
+        "comfy",
+        _(
+            "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only."
+        ),
+    )
+    a1111_gpu_noise = Setting(
+        _("A1111 seeds (GPU noise)"),
+        False,
+        _(
+            "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings."
+        ),
+    )
+    a1111_ensd = Setting(
+        _("ENSD"), 0, _("Extra noise seed delta. Keep 0 unless matching an A1111 preset.")
+    )
     sampler = Setting(_("Sampler"), "Default - DPM++ 2M", _("The sampling strategy and scheduler"))
 
     sampler_steps = Setting(
@@ -132,7 +167,13 @@ class Style(QObject):
     self_attention_guidance: bool = StyleSettings.self_attention_guidance.default
     preferred_resolution: int = StyleSettings.preferred_resolution.default
     linked_edit_style: str = StyleSettings.linked_edit_style.default
+    krea2_reference_mode: str = StyleSettings.krea2_reference_mode.default
+    krea2_ref_boost: float = StyleSettings.krea2_ref_boost.default
+    krea2_grounding_px: int = StyleSettings.krea2_grounding_px.default
     sampler: str = StyleSettings.sampler.default
+    prompt_mode: str = StyleSettings.prompt_mode.default
+    a1111_gpu_noise: bool = StyleSettings.a1111_gpu_noise.default
+    a1111_ensd: int = StyleSettings.a1111_ensd.default
     sampler_steps: int = StyleSettings.sampler_steps.default
     cfg_scale: float = StyleSettings.cfg_scale.default
     live_sampler: str = StyleSettings.live_sampler.default
@@ -226,6 +267,9 @@ class Style(QObject):
             rescale_cfg=self.rescale_cfg,
             loras=[LoraInput.from_dict(l) for l in self.loras if l.get("enabled", True)],
             self_attention_guidance=self.self_attention_guidance,
+            krea2_reference_mode=self.krea2_reference_mode,
+            krea2_ref_boost=self.krea2_ref_boost,
+            krea2_grounding_px=self.krea2_grounding_px,
         )
 
     def get_steps(self, is_live: bool) -> tuple[int, int]:

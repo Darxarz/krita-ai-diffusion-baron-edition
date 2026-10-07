@@ -540,6 +540,10 @@ class Image:
     def mask_add(cls, lhs: Image, rhs: Image):
         return cls._mask_op(lhs, rhs, QPainter.CompositionMode.CompositionMode_SourceOver)
 
+    @classmethod
+    def mask_multiply(cls, lhs: Image, rhs: Image):
+        return cls._mask_op(lhs, rhs, QPainter.CompositionMode.CompositionMode_DestinationIn)
+
     @staticmethod
     def compare(img_a: Image, img_b: Image):
         assert extent_equal(img_a._qimage, img_b._qimage)

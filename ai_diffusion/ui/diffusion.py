@@ -26,6 +26,7 @@ from ..model.updates import UpdateState
 from ..settings import ServerMode, settings
 from . import theme
 from .animation import AnimationWidget
+from .background import BackgroundWidget
 from .custom_workflow import CustomWorkflowPlaceholder, CustomWorkflowWidget
 from .generation import GenerationWidget
 from .live import LiveWidget
@@ -279,10 +280,11 @@ class WelcomeWidget(QWidget):
 class ImageDiffusionWidget(DockWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(_("AI Image Generation"))
+        self.setWindowTitle("Krita AI Diffusion Baron Edition")
         self._welcome = WelcomeWidget(root.server)
         self._generation = GenerationWidget()
         self._upscaling = UpscaleWidget()
+        self._background = BackgroundWidget()
         self._animation = AnimationWidget()
         self._live = LiveWidget()
         self._custom = CustomWorkflowWidget()
@@ -291,6 +293,7 @@ class ImageDiffusionWidget(DockWidget):
         self._frame.addWidget(self._welcome)
         self._frame.addWidget(self._generation)
         self._frame.addWidget(self._upscaling)
+        self._frame.addWidget(self._background)
         self._frame.addWidget(self._live)
         self._frame.addWidget(self._animation)
         self._frame.addWidget(self._custom)
@@ -330,6 +333,9 @@ class ImageDiffusionWidget(DockWidget):
         elif model.workspace is Workspace.upscaling:
             self._upscaling.model = model
             self._frame.setCurrentWidget(self._upscaling)
+        elif model.workspace is Workspace.background:
+            self._background.model = model
+            self._frame.setCurrentWidget(self._background)
         elif model.workspace is Workspace.live:
             self._live.model = model
             self._frame.setCurrentWidget(self._live)

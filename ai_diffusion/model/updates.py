@@ -4,6 +4,7 @@ import shutil
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import time
 from typing import NamedTuple
 
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -12,6 +13,7 @@ from .. import __version__, eventloop
 from ..backend.network import RequestManager
 from ..platform_tools import ZipFile
 from ..util import client_logger as log
+from . import baron_updates
 from .properties import ObservableProperties, Property
 
 
@@ -54,6 +56,8 @@ class AutoUpdate(QObject, ObservableProperties):
         self.plugin_dir = plugin_dir or Path(__file__).parent.parent.parent
         self.current_version = current_version or __version__
         self.api_url = api_url or self.default_api_url
+        self.baron_feed_url = baron_updates.feed_url
+        self._package_bytes: int | None = None
         self._package: UpdatePackage | None = None
         self._temp_dir: TemporaryDirectory | None = None
         self._request_manager: RequestManager | None = None
@@ -66,7 +70,27 @@ class AutoUpdate(QObject, ObservableProperties):
         )
 
     async def _check(self):
-        if self.state is UpdateState.restart_required:
+        if self.state in (
+            UpdateState.restart_required,
+            UpdateState.checking,
+            UpdateState.downloading,
+            UpdateState.installing,
+        ):
+            return
+
+        if "-baron." in self.current_version:
+            self.error = ""
+            self.state = UpdateState.checking
+            result = await self._net.get(f"{self.baron_feed_url}?t={int(time())}", timeout=15)
+            package = baron_updates.package_info(result, self.current_version, self.baron_feed_url)
+            self.latest_version = package["version"] if package else self.current_version
+            self._package = (
+                UpdatePackage(package["version"], package["url"], package["sha256"])
+                if package
+                else None
+            )
+            self._package_bytes = package["bytes"] if package else None
+            self.state = UpdateState.available if package else UpdateState.latest
             return
 
         self.state = UpdateState.checking
@@ -101,20 +125,36 @@ class AutoUpdate(QObject, ObservableProperties):
         )
 
     async def _run(self):
+        if self.state not in (UpdateState.available, UpdateState.failed_update):
+            return
         assert self.latest_version and self._package
 
         self._temp_dir = TemporaryDirectory()
         archive_path = Path(self._temp_dir.name) / f"krita_ai_diffusion-{self.latest_version}.zip"
         log.info(f"Downloading plugin update {self._package.url}")
         self.state = UpdateState.downloading
-        archive_data = await self._net.download(self._package.url)
+        archive_data = (
+            await self._net.download(
+                self._package.url, timeout=120, max_bytes=baron_updates.max_package_bytes
+            )
+            if "-baron." in self.current_version
+            else await self._net.download(self._package.url)
+        )
 
         sha256 = hashlib.sha256(archive_data).hexdigest()
         if sha256 != self._package.sha256:
             log.error(f"Update package hash mismatch: {sha256} != {self._package.sha256}")
             raise RuntimeError("Downloaded plugin package is corrupted or incomplete")
+        if self._package_bytes is not None and len(archive_data) != self._package_bytes:
+            raise RuntimeError("Downloaded plugin package has an incorrect size")
 
         archive_path.write_bytes(archive_data)
+        if "-baron." in self.current_version:
+            self.state = UpdateState.installing
+            baron_updates.install_package(archive_path, self.plugin_dir, self.latest_version)
+            self.current_version = self.latest_version
+            self.state = UpdateState.restart_required
+            return
         source_dir = Path(self._temp_dir.name) / f"krita_ai_diffusion-{self.latest_version}"
         log.info(f"Extracting plugin archive into {source_dir}")
         self.state = UpdateState.installing
@@ -133,7 +173,9 @@ class AutoUpdate(QObject, ObservableProperties):
     @property
     def _net(self):
         if self._request_manager is None:
-            self._request_manager = RequestManager()
+            self._request_manager = RequestManager(
+                same_origin_only="-baron." in self.current_version
+            )
         return self._request_manager
 
     async def _handle_errors(self, func, error_state: UpdateState, message: str):

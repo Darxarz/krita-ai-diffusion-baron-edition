@@ -121,7 +121,7 @@ class Root(QObject):
                 client = ComfyClient(url)
                 await connection._connect(client)
                 signal_server_change()
-            elif settings.server_mode is ServerMode.cloud:
+            elif settings.server_mode in (ServerMode.cloud, ServerMode.orchestrion):
                 if client := connection.create_client(settings):
                     await connection._connect(client)
             elif settings.server_mode in [ServerMode.undefined, ServerMode.external]:

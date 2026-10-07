@@ -1,5 +1,13 @@
 {
   "id": "en",
   "name": "English",
-  "translations": {}
+  "translations": {
+    "Prompt syntax": "Prompt syntax",
+    "A1111 seeds (GPU noise)": "A1111 seeds (GPU noise)",
+    "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "Extra noise seed delta. Keep 0 unless matching an A1111 preset.",
+    "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.",
+    "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.",
+    "ENSD": "ENSD",
+    "ENSD must be between 0 and 4294967295": "ENSD must be between 0 and 4294967295"
+  }
 }

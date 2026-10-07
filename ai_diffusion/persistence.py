@@ -122,6 +122,7 @@ class ModelSync:
         self._history: list[_HistoryResult] = []
         self._memory_used: dict[int, int] = {}  # slot -> memory used for images in bytes
         self._slot_index = 0
+        self._history_unlimited = False
         self._last_change = 0
         self._save_task: asyncio.Task | None = None
         self._image_task: asyncio.Future | None = None
@@ -145,9 +146,12 @@ class ModelSync:
         model = self._model
         state = _serialize(model)
         state["version"] = version
+        if self._history_unlimited:
+            state["baron_history_unlimited"] = True
         state["preview_layer"] = model.preview_layer_id
         state["inpaint"] = _serialize(model.inpaint)
         state["upscale"] = _serialize(model.upscale)
+        state["background"] = _serialize(model.background)
         state["live"] = _serialize(model.live)
         state["animation"] = _serialize(model.animation)
         state["custom"] = _serialize_custom(model.custom)
@@ -165,10 +169,13 @@ class ModelSync:
 
     def _load(self, model: DocumentModel, state_bytes: bytes):
         state = json.loads(state_bytes.decode("utf-8"))
+        self._history_unlimited = state.get("baron_history_unlimited") is True
+        model.jobs.preserve_evicted_history = self._history_unlimited
         model.try_set_preview_layer(state.get("preview_layer", ""))
         _deserialize(model, state)
         _deserialize(model.inpaint, state.get("inpaint", {}))
         _deserialize(model.upscale, state.get("upscale", {}))
+        _deserialize(model.background, state.get("background", {}))
         _deserialize(model.live, state.get("live", {}))
         _deserialize(model.animation, state.get("animation", {}))
         _deserialize_custom(model.custom, state.get("custom", {}), model.name)
@@ -198,11 +205,13 @@ class ModelSync:
         model.modified.connect(self._save_later)
         model.inpaint.modified.connect(self._save_later)
         model.upscale.modified.connect(self._save_later)
+        model.background.modified.connect(self._save_later)
         model.live.modified.connect(self._save_later)
         model.animation.modified.connect(self._save_later)
         model.custom.modified.connect(self._save_later)
         model.jobs.job_finished.connect(self._save_results)
         model.jobs.job_discarded.connect(self._remove_results)
+        model.jobs.history_cleared.connect(self._clear_history)
         model.jobs.result_discarded.connect(self._remove_image)
         model.jobs.result_used.connect(self._save_later)
         model.jobs.selection_changed.connect(self._save_later)
@@ -274,6 +283,13 @@ class ModelSync:
                 self._memory_used[history.slot] = image_data.size()
                 self._save()
 
+    def _clear_history(self):
+        for entry in self._history:
+            self._model.document.remove_annotation(f"result{entry.slot}.webp")
+        self._history.clear()
+        self._memory_used.clear()
+        self._save()
+
     def _save_later(self):
         self._last_change = time()
         if self._save_task is None or self._save_task.done():
@@ -289,6 +305,8 @@ class ModelSync:
         return sum(self._memory_used.values())
 
     def _prune(self):
+        if self._history_unlimited:
+            return
         limit = settings.history_storage * 1024 * 1024
         used = self.memory_used
         while used > limit and len(self._history) > 0:

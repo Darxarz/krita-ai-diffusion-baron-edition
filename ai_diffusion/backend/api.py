@@ -2,7 +2,7 @@ import math
 from copy import copy
 from dataclasses import MISSING, Field, dataclass, field, fields, is_dataclass
 from enum import Enum
-from types import GenericAlias, UnionType
+from types import UnionType
 from typing import Any, get_args, get_origin
 
 from ..image import Bounds, Extent, Image, ImageCollection
@@ -20,6 +20,7 @@ class WorkflowKind(Enum):
     upscale_tiled = 5
     control_image = 6
     custom = 7
+    remove_background = 8
 
 
 @dataclass
@@ -66,6 +67,9 @@ class CheckpointInput:
     self_attention_guidance: bool = False
     dynamic_caching: bool = False
     tiled_vae: bool = False
+    krea2_reference_mode: str = "identity"
+    krea2_ref_boost: float = 4.0
+    krea2_grounding_px: int = 768
 
 
 @dataclass
@@ -185,6 +189,24 @@ class CustomWorkflowInput:
 
 
 @dataclass
+class BackgroundRemovalInput:
+    model: str = "BiRefNet-HR-matting"
+    isolate_subject: bool = True
+    subject: str = "person"
+    exclude: str = "chair"
+    threshold: float = 0.3
+    detail_margin: int = 8
+    process_resolution: int = 1536
+    edge_offset: int = 0
+    edge_blur: int = 0
+    refine_foreground: bool = True
+    subject_detector: str = "segm/person_yolov8m-seg.pt"
+    output_seed: int = 0
+    refine_subject: bool = False
+    sam_model: str = "sam_vit_b_01ec64.pth"
+
+
+@dataclass
 class WorkflowInput:
     kind: WorkflowKind
     images: ImageInput | None = None
@@ -199,6 +221,10 @@ class WorkflowInput:
     color_match: float = 0.0
     nsfw_filter: float = 0.0
     custom_workflow: CustomWorkflowInput | None = None
+    background_removal: BackgroundRemovalInput | None = None
+    prompt_mode: str = "comfy"
+    a1111_gpu_noise: bool = False
+    a1111_ensd: int = 0
 
     @property
     def extent(self):
@@ -247,6 +273,8 @@ class WorkflowInput:
 
     @property
     def cost(self):
+        if self.kind is WorkflowKind.remove_background:
+            return 0
         if self.kind is WorkflowKind.control_image:
             return 1
         if self.kind is WorkflowKind.upscale_simple:
@@ -349,18 +377,19 @@ class Deserializer:
         return self._value(field_type, value)
 
     def _value(self, cls, value):
-        if is_dataclass(cls):
-            return self._object(cls, value)
-        elif issubclass(cls, Enum):
-            return cls[value]
-        elif issubclass(cls, Image):
-            return self._images[value]
-        elif issubclass(cls, tuple):
-            return cls(*value)
-        elif isinstance(cls, GenericAlias) and issubclass(get_origin(cls), tuple):
+        origin = get_origin(cls)
+        if origin is tuple:
             return tuple(value)
-        elif isinstance(cls, GenericAlias) and issubclass(get_origin(cls), list):
+        elif origin is list:
             return [self._value(get_args(cls)[0], v) for v in value]
+        elif is_dataclass(cls):
+            return self._object(cls, value)
+        elif isinstance(cls, type) and issubclass(cls, Enum):
+            return cls[value]
+        elif isinstance(cls, type) and issubclass(cls, Image):
+            return self._images[value]
+        elif isinstance(cls, type) and issubclass(cls, tuple):
+            return cls(*value)
         else:
             return value
 

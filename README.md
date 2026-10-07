@@ -1,129 +1,51 @@
-<h1><img width="64px" src="ai_diffusion/icons/logo-128.png"> Generative AI <i>for Krita</i></h1>
+<p align="center"><img src="docs/images/baron-hero.svg" alt="Krita Baron Edition" width="100%"></p>
 
-✨[Features](#features) | ⭳ [Download](https://github.com/Acly/krita-ai-diffusion/releases/latest) | 🛠️[Installation](https://docs.interstice.cloud/installation) | 🎞️ [Video](https://youtu.be/Ly6USRwTHe0) | 🖼️[Gallery](#gallery) | 📖[User Guide](https://docs.interstice.cloud) | 💬[Discussion](https://github.com/Acly/krita-ai-diffusion/discussions) | 🗣️[Discord](https://discord.gg/pWyzHfHHhU)
+# Krita AI Diffusion — Baron Edition
 
-This is a plugin to use generative AI in image painting and editing workflows
-from within Krita. Visit
-[**www.interstice.cloud**](https://www.interstice.cloud) for an introduction. Learn how to install and use it on [**docs.interstice.cloud**](https://docs.interstice.cloud).
+A desktop fork of [Acly's Krita AI Diffusion](https://github.com/Acly/krita-ai-diffusion),
+with a companion native Android edition. Generate, inpaint, edit, upscale and use
+references directly in Krita. **Acly and contributors remain the original authors;
+Darxarz / Baron Edition provides modifications and the Android port.**
 
-The main goals of this project are:
-* **Precision and Control.** Creating entire images from text can be unpredictable.
-  To get the result you envision, you can restrict generation to selections,
-  refine existing content with a variable degree of strength, focus text on image
-  regions, and guide generation with reference images, sketches, line art,
-  depth maps, and more.
-* **Workflow Integration.** Most image generation tools focus heavily on AI parameters.
-  This project aims to be an unobtrusive tool that integrates and synergizes
-  with image editing workflows in Krita. Draw, paint, edit and generate seamlessly without worrying about resolution and technical details.
-* **Local, Open, Free.** We are committed to open source models. Customize presets, bring your
-  own models, and run everything local on your hardware. Cloud generation is also available
-  to get started quickly without heavy investment.  
+## Download
 
-[![Watch video demo](media/screenshot-video-preview.webp)](https://youtu.be/Ly6USRwTHe0 "Watch video demo")
+| Package | Download |
+| --- | --- |
+| Desktop plugin · Krita 5.x / Qt5 | **[1.53.0-baron.14 ZIP](https://github.com/Darxarz/krita-ai-diffusion-baron-edition/releases/download/v1.53.0-baron.14/krita_ai_diffusion-1.53.0-baron.14.zip)** |
+| Android application · ARM64, Android 7+ | **[Krita Baron Edition 0.1.35 APK](https://github.com/Darxarz/krita-baron-android/releases/download/v0.1.35/krita-baron-android-arm64-v0.1.35.apk)** |
+| Android project | [Source, installation and remaining port differences](https://github.com/Darxarz/krita-baron-android) |
 
-## <a name="features"></a> Features
+## Baron additions
 
-* **Inpainting**: Use selections for generative fill, expand, to add or remove objects
-* **Live Painting**: Let AI interpret your canvas in real time for immediate feedback. [Watch Video](https://youtu.be/AF2VyqSApjA?si=Ve5uQJWcNOATtABU)
-* **Upscaling**: Upscale and enrich images to 4k, 8k and beyond without running out of memory.
-* **Diffusion Models**: Flux 2, Z-Image, Stable Diffusion 1.5, XL, Illustrious
-* **Edit Models**: Make modifications to images via text instructions
-* **ControlNet**: Scribble, Line art, Canny edge, Pose, Depth, Normals, Segmentation, +more
-* **IP-Adapter**: Reference images, Style and composition transfer, Face swap
-* **Regions**: Assign individual text descriptions to image areas defined by layers.
-* **Job Queue**: Queue and cancel generation jobs while working on your image.
-* **History**: Preview results and browse previous generations and prompts at any time.
-* **Strong Defaults**: Versatile default style presets allow for a streamlined UI.
-* **Customization**: Create your own presets - custom checkpoints, LoRA, samplers and more.
+- Qwen Image 2.1 discovery and editing, Krea 2 editing/reference presets and identity options.
+- Foreground/background extraction as a dedicated workspace with editable masks.
+- Model/LoRA galleries and preview handling, browser sign-in for a compatible custom
+  backend, reconnect/result recovery and a separate Baron update channel.
+- Optional A1111 prompt syntax and GPU-noise options on supported servers.
+- Public expressive font collection and translations for the added controls.
 
-## <a name="installation"></a> Getting Started
+The original Generation, Live, Upscale, Custom/Graph and Animation workspaces remain
+part of the desktop plugin. The Android edition has a smaller feature set:
+[up-to-date comparison](https://github.com/Darxarz/krita-baron-android/blob/main/docs/CURRENT_PARITY.md).
 
-See the [Plugin Installation Guide](https://docs.interstice.cloud/installation) for instructions.
+## Install
 
-A concise (more technical) version is below:
+1. Download the **plugin ZIP** from Releases.
+2. In Krita, choose **Tools → Scripts → Import Python Plugin from File** and select it.
+3. Restart Krita; enable the plugin under **Settings → Configure Krita → Python Plugin Manager**.
+4. Open the **Krita AI Diffusion Baron Edition** docker and connect to your backend.
 
-### Operating System
+This uses the original `ai_diffusion` identifier and replaces an existing version.
+Use the release ZIP, not GitHub's automatically generated Source code ZIP, to install.
+Models and inference run on the configured server. Backend support determines
+which model and reference combinations are available.
 
-Windows, Linux, MacOS
+## Original project and documentation
 
-#### Hardware support
+[Original plugin](https://github.com/Acly/krita-ai-diffusion) ·
+[Handbook](https://docs.interstice.cloud) · [Preserved upstream README](UPSTREAM_README.md)
+· [Native Android port](https://github.com/Darxarz/krita-baron-android)
 
-To run locally a powerful graphics card with at least 6 GB VRAM (NVIDIA) is
-recommended. Otherwise generating images will take very long or may fail due to
-insufficient memory!
-
-<table>
-<tr><td>NVIDIA GPU</td><td>supported via CUDA (Windows/Linux)</td></tr>
-<tr><td>AMD GPU</td><td>supported via ROCm (Windows/Linux)</td></tr>
-<tr><td>Intel GPU</td><td>supported via XPU (Windows/Linux)</td></tr>
-<tr><td>Apple Silicon</td><td>MPS on macOS 14+</td></tr>
-<tr><td>CPU</td><td>supported, but very slow</td></tr>
-</table>
-
-
-### Installation
-
-1. If you haven't yet, go and install [Krita](https://krita.org/)! _Required version: 5.2.0 or newer_
-1. [Download the plugin](https://github.com/Acly/krita-ai-diffusion/releases/latest).
-2. Start Krita and install the plugin via Tools ▸ Scripts ▸ Import Python Plugin from File...
-    * Point it to the ZIP archive you downloaded in the previous step.
-    * Check [Krita's official documentation](https://docs.krita.org/en/user_manual/python_scripting/install_custom_python_plugin.html) for more options.
-3. Restart Krita and create a new document or open an existing image.
-4. To show the plugin docker: Settings ‣ Dockers ‣ AI Image Generation.
-5. In the plugin docker, click "Configure" to start local server installation or connect.
-
-> [!NOTE]
-> If you encounter problems please check the [FAQ / list of common issues](https://docs.interstice.cloud/common-issues) for solutions.
->
-> Reach out via [discussions](https://github.com/Acly/krita-ai-diffusion/discussions), our [Discord](https://discord.gg/pWyzHfHHhU), or report [an issue here](https://github.com/Acly/krita-ai-diffusion/issues). Please note that official Krita channels are **not** the right place to seek help with
-> issues related to this extension!
-
-### _Optional:_ Custom ComfyUI Server
-
-The plugin uses [ComfyUI](https://github.com/comfyanonymous/ComfyUI) as backend.
-As an alternative to the automatic installation, you can install it manually or
-use an existing installation. If the server is already running locally before
-starting Krita, the plugin will automatically try to connect. Using a remote
-server is also possible this way.
-
-Please check the list of [required extensions and models](https://docs.interstice.cloud/comfyui-setup) to make sure your installation is compatible.
-
-### _Optional:_ Object selection tools (Segmentation)
-
-If you're looking for a way to easily select objects or remove background in the
-image, there is a [separate plugin](https://github.com/Acly/krita-ai-tools)
-which adds AI segmentation tools.
-
-
-## Contributing
-
-Contributions are very welcome! Check the [contributing guide](CONTRIBUTING.md) to get started.
-
-## <a name="gallery"></a> Gallery
-
-_Live painting with regions (Click for video)_
-[![Watch video demo](media/screenshot-regions.png)](https://youtu.be/PPxOE9YH57E "Watch video demo")
-
-_Inpainting on a photo using a realistic model_
-<img src="media/screenshot-2.png">
-
-_Reworking and adding content to an AI generated image_
-<img src="media/screenshot-1.png">
-
-_Adding detail and iteratively refining small parts of the image_
-<img src="media/screenshot-3.png">
-
-_Modifying the pose vector layer to control character stances (Click for video)_
-[![Watch video demo](media/screenshot-5.png)](https://youtu.be/-QDPEcVmdLI "Watch video demo")
-
-_Control layers: Scribble, Line art, Depth map, Pose_
-![Scribble control layer](media/control-scribble-screen.png)
-![Line art control layer](media/control-line-screen.png)
-![Depth map control layer](media/control-depth-screen.png)
-![Pose control layer](media/control-pose-screen.png)
-
-## Technology
-
-* Image generation: [Stable Diffusion](https://github.com/Stability-AI/generative-models), [Flux](https://blackforestlabs.ai/)
-* Diffusion backend: [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
-* Inpainting: [ControlNet](https://github.com/lllyasviel/ControlNet), [IP-Adapter](https://github.com/tencent-ailab/IP-Adapter)
+Krita is created by the Krita team and contributors. Baron Edition is an independent
+modified edition, not an official Acly or Krita release. Existing authorship and
+licenses are preserved. [GPL-3.0-or-later](LICENSE) · [Contributing](CONTRIBUTING.md).

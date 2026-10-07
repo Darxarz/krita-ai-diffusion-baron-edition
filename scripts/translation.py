@@ -1,16 +1,24 @@
 import argparse
+import ast
 import json
-import re
 from pathlib import Path
 
 source_dir = Path(__file__).parent.parent / "ai_diffusion"
 excluded_dirs = [".pytest_cache", "__pycache__", "icons", "websockets", "debugpy"]
-expression = re.compile(r'_\(\s*"(.+?)"[\,|\s*\)]')
 
 
 def extract_source_strings(filepath: Path):
-    text = filepath.read_text(encoding="utf-8")
-    return set(expression.findall(text))
+    tree = ast.parse(filepath.read_text(encoding="utf-8"))
+    return {
+        node.args[0].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and isinstance(node.args[0].value, str)
+    }
 
 
 def parse_source(dir: Path) -> set[str]:
@@ -24,7 +32,7 @@ def parse_source(dir: Path) -> set[str]:
 
 
 def write_language_file(strings: set[str], id: str, name: str, target_file: Path):
-    defs = {"id": id, "name": name, "translations": {s: None for s in sorted(strings)}}
+    defs = {"id": id, "name": name, "translations": dict.fromkeys(sorted(strings))}
     with target_file.open("w", encoding="utf-8") as f:
         json.dump(defs, f, ensure_ascii=False, indent=2)
 

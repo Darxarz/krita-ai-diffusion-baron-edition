@@ -20,6 +20,7 @@ class ServerMode(Enum):
     managed = 0
     external = 1
     cloud = 2
+    orchestrion = 3
 
 
 class ServerBackend(Enum):
@@ -184,6 +185,11 @@ class Settings(QObject):
 
     access_token: str
     _access_token = Setting(_("Cloud Access Token"), "")
+
+    orchestrion_url: str
+    _orchestrion_url = Setting("Orchestrion", "https://orchestrion.su")
+    orchestrion_token: str
+    _orchestrion_token = Setting(_("Orchestrion device credential"), "")
 
     server_path: str
     _server_path = Setting(

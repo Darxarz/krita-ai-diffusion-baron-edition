@@ -48,6 +48,7 @@ from PyQt5.QtWidgets import (
 )
 
 from ..backend.client import filter_supported_styles, resolve_arch
+from ..backend.orchestrion_client import OrchestrionClient
 from ..backend.workflow import apply_strength, snap_to_percent
 from ..localization import translate as _
 from ..model.connection import ConnectionState
@@ -887,6 +888,7 @@ class WorkspaceSelectWidget(QToolButton):
         Workspace.live: theme.icon("workspace-live"),
         Workspace.animation: theme.icon("workspace-animation"),
         Workspace.custom: theme.icon("workspace-custom"),
+        Workspace.background: theme.icon("inpaint-replace_background"),
     }
 
     _value = Workspace.generation
@@ -897,6 +899,7 @@ class WorkspaceSelectWidget(QToolButton):
         menu = QMenu(self)
         menu.addAction(self._create_action(_("Generate"), Workspace.generation))
         menu.addAction(self._create_action(_("Upscale"), Workspace.upscaling))
+        menu.addAction(self._create_action(_("Separate background"), Workspace.background))
         menu.addAction(self._create_action(_("Live"), Workspace.live))
         menu.addAction(self._create_action(_("Animation"), Workspace.animation))
         menu.addAction(self._create_action(_("Graph"), Workspace.custom))
@@ -965,7 +968,11 @@ class GenerateButton(QPushButton):
         return QSize(fm.width(self._operation) + 40, 12 + int(1.3 * fm.height()))
 
     def enterEvent(self, a0: QEvent | None):
-        if (client := root.connection.client_if_connected) and client.user:
+        if (
+            (client := root.connection.client_if_connected)
+            and client.user
+            and not isinstance(client, OrchestrionClient)
+        ):
             self._cost = self.model.estimate_cost(self._kind)
 
     def leaveEvent(self, a0: QEvent | None):

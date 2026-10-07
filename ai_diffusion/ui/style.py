@@ -426,8 +426,7 @@ class LoraList(QWidget):
             for lora in root.files.loras:
                 if lora.source is not FileSource.unavailable:
                     parts = Path(lora.id).parts
-                    for i in range(1, len(parts)):
-                        folders.add("/".join(parts[:i]))
+                    folders.update("/".join(parts[:i]) for i in range(1, len(parts)))
             folder_icon = Krita.instance().icon("document-open")
             for folder in sorted(folders, key=lambda x: x.lower()):
                 self._filter_combo.addItem(folder_icon, folder)
@@ -720,6 +719,14 @@ class StylePresets(SettingsTab):
         self._toggle_checkpoint_advanced(False)
 
         add("loras", LoraList(StyleSettings.loras, self))
+        reference_mode = ComboBoxSetting(StyleSettings.krea2_reference_mode, parent=self)
+        reference_mode.set_items([(_("Identity"), "identity"), (_("Style"), "style")])
+        add("krea2_reference_mode", reference_mode)
+        add("krea2_ref_boost", SliderSetting(StyleSettings.krea2_ref_boost, self, 0, 10, "{:.1f}"))
+        add(
+            "krea2_grounding_px",
+            SpinBoxSetting(StyleSettings.krea2_grounding_px, self, 384, 1536, step=64),
+        )
         add("style_prompt", LineEditSetting(StyleSettings.style_prompt, self))
         add("negative_prompt", LineEditSetting(StyleSettings.negative_prompt, self))
 
@@ -729,6 +736,11 @@ class StylePresets(SettingsTab):
 
         sdesc = _("Configure sampler type, steps and CFG to tweak the quality of generated images.")
         add_header(self._layout, Setting(_("Sampler Settings"), "", sdesc))
+        prompt_mode = ComboBoxSetting(StyleSettings.prompt_mode, parent=self)
+        prompt_mode.set_items([("ComfyUI", "comfy"), ("AUTOMATIC1111 / Forge", "a1111")])
+        add("prompt_mode", prompt_mode)
+        add("a1111_gpu_noise", SwitchSetting(StyleSettings.a1111_gpu_noise, parent=self))
+        add("a1111_ensd", SpinBoxSetting(StyleSettings.a1111_ensd, self, 0, 2147483647))
 
         self._default_sampler = SamplerWidget("", _("Quality Preset (generate and upscale)"), self)
         self._default_sampler.value_changed.connect(self.write)
@@ -864,6 +876,8 @@ class StylePresets(SettingsTab):
     def _show_edit_style(self, style: Style):
         arch = resolve_arch(style, root.connection.client_if_connected)
         self._edit_style.visible = not arch.supports_edit
+        for name in ["krea2_reference_mode", "krea2_ref_boost", "krea2_grounding_px"]:
+            self._style_widgets[name].visible = arch is Arch.krea2
 
     def _setup_edit_style(self):
         client = root.connection.client_if_connected
@@ -942,6 +956,25 @@ class StylePresets(SettingsTab):
         self._clip_skip.enabled = arch.supports_clip_skip and self.current_style.clip_skip > 0
         self._zsnr.enabled = arch.supports_attention_guidance
         self._sag.enabled = arch.supports_attention_guidance
+        client = root.connection.client_if_connected
+        supported = (arch is Arch.sd15 or arch.is_sdxl_like) and client is not None
+        nodes = client.models.node_inputs if client else ()
+        self._style_widgets["prompt_mode"].setEnabled(
+            supported
+            and "smZ CLIPTextEncode" in nodes
+            and not Styles.list().is_builtin(self.current_style)
+        )
+        noise_enabled = supported and self.current_style.prompt_mode == "a1111"
+        self._style_widgets["a1111_gpu_noise"].setEnabled(
+            noise_enabled
+            and "smZ Settings" in nodes
+            and not Styles.list().is_builtin(self.current_style)
+        )
+        self._style_widgets["a1111_ensd"].setEnabled(
+            noise_enabled
+            and self.current_style.a1111_gpu_noise
+            and not Styles.list().is_builtin(self.current_style)
+        )
 
     def _read_style(self, style: Style):
         with self._write_guard:

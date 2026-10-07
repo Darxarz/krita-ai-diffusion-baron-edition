@@ -21,7 +21,7 @@ from ..util import client_logger as log
 from ..util import parse_enum
 from ..websockets.src import websockets
 from . import resources
-from .api import WorkflowInput
+from .api import WorkflowInput, WorkflowKind
 from .client import (
     CheckpointInfo,
     Client,
@@ -67,6 +67,7 @@ class JobInfo:
     work: WorkflowInput
     node_count: int = 0
     sample_count: int = 0
+    submitted: bool = False
 
     def __str__(self):
         return f"Job[id={self.id}]"
@@ -289,7 +290,7 @@ class ComfyClient(Client):
         assert self._is_connected
         try:
             while self._is_connected:
-                await self._waiting_job.wait()  # first wait for slot on server
+                await self._wait_for_slot()  # first wait for slot on server
                 job = await self._queue.get()  # then get highest priority job from queue
                 try:
                     await self._run_job(job)
@@ -298,6 +299,9 @@ class ComfyClient(Client):
                     await self._report(ClientEvent.error, job.id, error=str(e))
         except asyncio.CancelledError:
             pass
+
+    async def _wait_for_slot(self):
+        await self._waiting_job.wait()
 
     async def _run_job(self, job: JobInfo):
         workflow = create_workflow(job.work, self.models)
@@ -320,13 +324,14 @@ class ComfyClient(Client):
             if result["prompt_id"] != job.id:
                 log.error(f"Prompt ID mismatch: {result['prompt_id']} != {job.id}")
                 raise ValueError("Prompt ID mismatch - Please update ComfyUI to 0.3.45 or later!")
+            job.submitted = True
         except Exception:
             self._waiting_job.clear()
             raise
 
     async def _listen(self):
         url = websocket_url(self.url)
-        args = websocket_args(settings.server_authorization)
+        args = self._websocket_args()
         async for websocket in websockets.connect(f"{url}/ws?clientId={self._id}", **args):
             try:
                 await self._subscribe_workflows()
@@ -346,6 +351,9 @@ class ComfyClient(Client):
                 await self._report(ClientEvent.error, "", error=str(e))
             finally:
                 await self._report(ClientEvent.disconnected, "")
+
+    def _websocket_args(self):
+        return websocket_args(settings.server_authorization)
 
     async def _listen_websocket(self, websocket: websockets.ClientConnection):
         progress: Progress | None = None
@@ -380,22 +388,11 @@ class ComfyClient(Client):
 
                 if msg["type"] == "executing" and msg["data"]["node"] is None:
                     job_id = msg["data"]["prompt_id"]
-                    if self._clear_job(job_id):
-                        if len(images) == 0:
-                            # It may happen if the entire execution is cached and no images are sent.
-                            images = last_images
-                        if len(images) == 0:
-                            # Still no images. Potential scenario: execution cached, but previous
-                            # generation happened before the client was connected.
-                            err = "No new images were generated because the inputs did not change."
-                            await self._report(ClientEvent.error, job_id, error=err)
-                        else:
-                            last_images = images
-                            await self._report(
-                                ClientEvent.finished, job_id, 1, images=images, result=result
-                            )
+                    last_images = await self._finish_job(job_id, images, last_images, result)
 
                 elif msg["type"] in ("execution_cached", "executing", "progress"):
+                    if self._active_job is not None and progress is None:
+                        progress = Progress(self._active_job)
                     if self._active_job is not None and progress is not None:
                         progress.handle(msg)
                         await self._report(
@@ -430,6 +427,21 @@ class ComfyClient(Client):
                     workflow = SharedWorkflow(name, msg["data"]["workflow"])
                     await self._report(ClientEvent.published, "", result=workflow)
 
+    async def _finish_job(self, job_id, images, last_images, result):
+        job = self._active_job
+        if self._clear_job(job_id):
+            if len(images) == 0 and (
+                job is None or job.work.kind is not WorkflowKind.remove_background
+            ):
+                images = last_images
+            if len(images) == 0:
+                err = "No new images were generated because the inputs did not change."
+                await self._report(ClientEvent.error, job_id, error=err)
+            else:
+                last_images = images
+                await self._report(ClientEvent.finished, job_id, 1, images=images, result=result)
+        return last_images
+
     async def listen(self):
         self._is_connected = True
         self._job_runner = asyncio.create_task(self._run())
@@ -463,6 +475,7 @@ class ComfyClient(Client):
                 self._job_runner,
                 self._websocket_listener,
                 self._unsubscribe_workflows(),
+                return_exceptions=True,
             )
 
     async def try_inspect(self, folder_name: str):
@@ -525,13 +538,26 @@ class ComfyClient(Client):
         if diffusion_models:
             models.checkpoints.update(parse_model_info(diffusion_models, FileFormat.diffusion))
 
+        for name in nodes.options("UNETLoader", "unet_name"):
+            if name not in models.checkpoints and Arch.is_qwen21_filename(name):
+                info = (diffusion_models or {}).get(name)
+                if info is None or (
+                    info.get("base_model") == "unknown"
+                    and not info.get("is_inpaint", False)
+                    and not info.get("is_refiner", False)
+                ):
+                    models.checkpoints[name] = CheckpointInfo(
+                        name, Arch.qwen2, FileFormat.diffusion
+                    )
+
         models.vae = nodes.options("VAELoader", "vae_name")
         models.loras = nodes.options("LoraLoader", "lora_name")
 
         if "UnetLoaderGGUF" in nodes:
             for name in nodes.options("UnetLoaderGGUF", "unet_name"):
                 if name not in models.checkpoints:
-                    models.checkpoints[name] = CheckpointInfo(name, Arch.flux, FileFormat.diffusion)
+                    arch = Arch.qwen2 if Arch.is_qwen21_filename(name) else Arch.flux
+                    models.checkpoints[name] = CheckpointInfo(name, arch, FileFormat.diffusion)
         else:
             log.info("GGUF support: node is not installed.")
 
@@ -755,6 +781,7 @@ def _find_text_encoder_models(model_list: Sequence[str]):
         "qwen_3_4b",
         "qwen_3_8b",
         "qwen_3vl_4b",
+        "qwen_3vl_8b",
         "ministral",
     ]
     return {

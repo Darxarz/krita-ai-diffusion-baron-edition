@@ -62,6 +62,7 @@ from ..style import Arch, Style, Styles
 from ..text import create_ai_generated_xmp, create_img_metadata, extract_layers
 from ..util import PluginError, clamp, ensure, trim_text, unique
 from ..util import client_logger as log
+from .background import BackgroundWorkspace
 from .connection import Connection, ConnectionState
 from .control import ControlLayer
 from .custom_workflow import (
@@ -87,6 +88,7 @@ class Workspace(Enum):
     live = 2
     animation = 3
     custom = 4
+    background = 5
 
 
 class ProgressKind(Enum):
@@ -175,6 +177,7 @@ class DocumentModel(QObject, ObservableProperties):
         self.edit_regions = RootRegion(self)
         self.inpaint = CustomInpaint()
         self.upscale = UpscaleWorkspace(self)
+        self.background = BackgroundWorkspace(self)
         self.live = LiveWorkspace(self)
         self.animation = AnimationWorkspace(self)
         self.custom = CustomWorkspace(workflows, self._generate_custom, self.jobs)
@@ -644,6 +647,8 @@ class DocumentModel(QObject, ObservableProperties):
     def clear_queued(self):
         to_remove = [job for job in self.jobs if job.state is JobState.queued]
         for job in to_remove:
+            if job.kind is JobKind.background_removal:
+                self.background.finish(job)
             self.jobs.remove(job)
         return [job.id for job in to_remove if job.id is not None]
 
@@ -688,6 +693,13 @@ class DocumentModel(QObject, ObservableProperties):
                 job.control.layer_id = self.add_control_layer(job, message.result).id
             elif job.kind is JobKind.upscaling:
                 self.add_upscale_layer(job)
+            elif job.kind is JobKind.background_removal:
+                try:
+                    self.background.apply(job)
+                except Exception as e:
+                    self._finish_job(job, ClientEvent.error)
+                    self.report_error(util.log_error(e))
+                    return
             self._finish_job(job, message.event)
         elif message.event is ClientEvent.interrupted:
             self._finish_job(job, message.event)
@@ -700,6 +712,8 @@ class DocumentModel(QObject, ObservableProperties):
             self.report_error(Error(ErrorKind.insufficient_funds, message.error, message.result))
 
     def _finish_job(self, job: Job, event: ClientEvent):
+        if job.kind is JobKind.background_removal:
+            self.background.finish(job)
         if job.kind is JobKind.upscaling:
             self.upscale.set_in_progress(False)
 
@@ -1563,6 +1577,7 @@ def get_selection_modifiers(
 ):
     if arch is InpaintContext.mask_bounds:  # use exact bounds, no padding
         return SelectionModifiers(multiple=1)
+    assert isinstance(arch, Arch)
 
     feather = settings.selection_feather / 100
     invert = False
@@ -1579,7 +1594,7 @@ def get_selection_modifiers(
         pad_rel=settings.selection_padding / 100,
         pad_offset_px=settings.selection_grow_offset,
         size_min_px=min_size,
-        multiple=resolution.diffusion_multiple,
+        multiple=resolution.diffusion_multiple(arch),
         invert=invert,
     )
 

@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -46,6 +47,7 @@ from ..model.root import collect_diagnostics, root
 from ..model.updates import UpdateState
 from ..settings import ImageFileFormat, PerformancePreset, ServerMode, Settings, settings
 from ..style import Style
+from .orchestrion import OrchestrionWidget
 from .server import ServerWidget
 from .settings_widgets import (
     ComboBoxSetting,
@@ -120,6 +122,12 @@ class InitialSetupWidget(QWidget):
             + "<br><a href='https://docs.interstice.cloud/comfyui-setup'>ComfyUI Setup Guide</a>",
             _("Connect via URL"),
             ServerMode.external,
+        )
+        add_option(
+            "Orchestrion · Baron Edition",
+            _("Browser login, balance, prices and your website model gallery."),
+            _("Connect to Orchestrion"),
+            ServerMode.orchestrion,
         )
         layout.addStretch()
 
@@ -328,6 +336,7 @@ class CloudWidget(QWidget):
 _server_mode_text = {
     ServerMode.undefined: "Undefined",
     ServerMode.cloud: _("Online Service"),
+    ServerMode.orchestrion: "Orchestrion",
     ServerMode.managed: _("Local Managed Server"),
     ServerMode.external: _("Custom Server"),
 }
@@ -410,21 +419,27 @@ class ServerModeSelect(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        layout = QHBoxLayout()
+        layout = QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         self._cloud_button = ServerModeButton(ServerMode.cloud, "signed_out", self)
+        self._orchestrion_button = ServerModeButton(ServerMode.orchestrion, "signed_out", self)
         self._managed_button = ServerModeButton(ServerMode.managed, "not_installed", self)
         self._external_button = ServerModeButton(ServerMode.external, "not_connected", self)
 
-        for button in (self._cloud_button, self._managed_button, self._external_button):
+        for button in (
+            self._cloud_button,
+            self._orchestrion_button,
+            self._managed_button,
+            self._external_button,
+        ):
             button.toggled.connect(self._change_mode)
 
-        layout.addWidget(self._cloud_button)
-        layout.addWidget(self._managed_button)
-        layout.addWidget(self._external_button)
-        layout.addStretch()
+        layout.addWidget(self._cloud_button, 0, 0)
+        layout.addWidget(self._orchestrion_button, 0, 1)
+        layout.addWidget(self._managed_button, 1, 0)
+        layout.addWidget(self._external_button, 1, 1)
 
     def _change_mode(self, mode: ServerMode):
         self.mode = mode
@@ -434,6 +449,8 @@ class ServerModeSelect(QWidget):
     def mode(self):
         if self._cloud_button.isChecked():
             return ServerMode.cloud
+        elif self._orchestrion_button.isChecked():
+            return ServerMode.orchestrion
         elif self._managed_button.isChecked():
             return ServerMode.managed
         elif self._external_button.isChecked():
@@ -443,11 +460,29 @@ class ServerModeSelect(QWidget):
     @mode.setter
     def mode(self, mode: ServerMode):
         self._cloud_button.setChecked(mode is ServerMode.cloud)
+        self._orchestrion_button.setChecked(mode is ServerMode.orchestrion)
         self._managed_button.setChecked(mode is ServerMode.managed)
         self._external_button.setChecked(mode is ServerMode.external)
 
     def update_status(self, state: ConnectionState, server_state: ServerState):
         self._cloud_button.status = "signed_out"
+        self._orchestrion_button.status = "signed_out"
+        if self.mode is ServerMode.orchestrion:
+            self._orchestrion_button.status = (
+                "connected"
+                if state is ConnectionState.connected
+                else "error"
+                if state in (ConnectionState.error, ConnectionState.auth_error)
+                else "connecting"
+                if state
+                in (
+                    ConnectionState.connecting,
+                    ConnectionState.discover_models,
+                    ConnectionState.auth_pending,
+                    ConnectionState.auth_requesting,
+                )
+                else "signed_out"
+            )
         self._external_button.status = "not_connected"
         match server_state:
             case ServerState.not_installed:
@@ -494,11 +529,13 @@ class ConnectionSettings(SettingsTab):
 
         self._setup_widget = InitialSetupWidget(self)
         self._cloud_widget = CloudWidget(self)
+        self._orchestrion_widget = OrchestrionWidget(self)
         self._server_widget = ServerWidget(server, self)
         self._connection_widget = QWidget(self)
         self._server_stack = QStackedWidget(self)
         self._server_stack.addWidget(self._setup_widget)
         self._server_stack.addWidget(self._cloud_widget)
+        self._server_stack.addWidget(self._orchestrion_widget)
         self._server_stack.addWidget(self._server_widget)
         self._server_stack.addWidget(self._connection_widget)
 
@@ -558,6 +595,7 @@ class ConnectionSettings(SettingsTab):
         self._server_mode.setVisible(mode is not ServerMode.undefined)
         widget = {
             ServerMode.cloud: self._cloud_widget,
+            ServerMode.orchestrion: self._orchestrion_widget,
             ServerMode.managed: self._server_widget,
             ServerMode.external: self._connection_widget,
             ServerMode.undefined: self._setup_widget,
@@ -589,6 +627,7 @@ class ConnectionSettings(SettingsTab):
         connection = root.connection
         self._server_mode.update_status(connection.state, self._server.state)
         self._cloud_widget.update_connection_state(connection.state)
+        self._orchestrion_widget.update_connection_state(connection.state)
         self._connect_button.setEnabled(True)
         if connection.state == ConnectionState.connected:
             self._connection_status.setText(_("Connected"))
@@ -972,7 +1011,7 @@ class AboutSettings(SettingsTab):
         font_height = QFontMetrics(extra_large).height() + 4
         header_logo.setPixmap(logo().scaled(font_height * 2, font_height * 2))
         header_logo.setMaximumSize(font_height * 2, font_height * 2)
-        header_text = QLabel("Generative AI\nfor Krita", self)
+        header_text = QLabel("AI Diffusion\nBaron Edition", self)
         header_text.setFont(extra_large)
         header_layout.addWidget(header_logo)
         header_layout.addWidget(header_text)
@@ -1133,6 +1172,7 @@ class AboutSettings(SettingsTab):
 
 
 _links_text = """
+<a href='https://github.com/Darxarz/krita-ai-diffusion-baron-edition'>Baron Edition</a><br><br>
 <a href='https://www.interstice.cloud'>Website</a><br><br>
 <a href='https://docs.interstice.cloud'>Handbook: Guides and Tips</a><br><br>
 <a href='https://github.com/Acly/krita-ai-diffusion'>GitHub</a>

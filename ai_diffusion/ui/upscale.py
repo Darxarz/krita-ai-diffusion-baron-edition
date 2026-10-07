@@ -20,6 +20,7 @@ from ..model.model import DocumentModel, TileOverlapMode
 from ..model.properties import Bind, Binding, bind, bind_combo, bind_toggle
 from ..model.root import root
 from . import theme
+from .orchestrion import OrchestrionBar
 from .settings_widgets import WarningIcon
 from .switch import SwitchWidget
 from .theme import SignalBlocker, set_text_clipped
@@ -197,6 +198,9 @@ class UpscaleWidget(QWidget):
         actions_layout.addWidget(self.queue_button)
         layout.addLayout(actions_layout)
 
+        self.orchestrion_bar = OrchestrionBar(JobKind.upscaling, self)
+        layout.addWidget(self.orchestrion_bar)
+
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(100)
@@ -240,6 +244,7 @@ class UpscaleWidget(QWidget):
                 model.style_changed.connect(self._update_style),
             ]
             self.upscale_button.model = model
+            self.orchestrion_bar.model = model
             self.queue_button.model = model
             self._update_prompt()
             self._update_style()

@@ -3,11 +3,13 @@ document annotations and the plugin's settings.json file."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 from krita import Document as MockKritaDocument
 from krita import Krita
+from PyQt5.QtCore import QByteArray
 
 from ai_diffusion.backend.api import FillMode, InpaintMode
 from ai_diffusion.document import KritaDocument
@@ -17,7 +19,7 @@ from ai_diffusion.model.custom_workflow import WorkflowCollection
 from ai_diffusion.model.jobs import Job, JobKind, JobParams, JobState
 from ai_diffusion.model.model import DocumentModel, InpaintContext, QueueMode
 from ai_diffusion.persistence import ModelSync, RecentlyUsedSync
-from ai_diffusion.settings import Settings
+from ai_diffusion.settings import Settings, settings
 from ai_diffusion.style import Style
 
 from .conftest import qtapp
@@ -228,3 +230,37 @@ async def test_history(workflows_dir: Path):
     # Pixel values should be close to the originals (allow for WebP compression rounding)
     assert Image.compare(restored_a, img_a) < 0.02
     assert Image.compare(restored_b, img_b) < 0.02
+
+
+@qtapp
+async def test_baron_archive_keeps_evicted_results(workflows_dir: Path):
+    document = Krita.instance().openDocument("baron archive")
+    document.setAnnotation(
+        "ai_diffusion/ui.json",
+        "Baron history",
+        QByteArray(json.dumps({"version": 1, "baron_history_unlimited": True}).encode()),
+    )
+    model = _make_model(document, workflows_dir)
+    sync = ModelSync(model)
+    previous = settings.history_size, settings.history_storage
+    settings.history_size = settings.history_storage = 0
+    try:
+        for index in range(2):
+            params = JobParams(Bounds(12, 35, 32, 24), "character", seed=index)
+            job = model.jobs.add_job(Job(f"baron-job-{index}", JobKind.diffusion, params))
+            model.jobs.set_results(job, ImageCollection([Image.create(Extent(32, 24))]))
+            model.jobs.notify_finished(job)
+            if sync._image_task is not None:
+                await sync._image_task
+        assert len(sync._history) == 2
+        assert model.jobs.find("baron-job-0") is None
+        sync._save()
+        state = json.loads(bytes(document.annotation("ai_diffusion/ui.json")))
+        assert state["baron_history_unlimited"] is True
+        assert len(state["history"]) == 2
+        assert document.annotation("ai_diffusion/result0.webp").size() > 0
+        model.jobs.clear()
+        assert sync._history == []
+        assert document.annotation("ai_diffusion/result0.webp").size() == 0
+    finally:
+        settings.history_size, settings.history_storage = previous
