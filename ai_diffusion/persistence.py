@@ -169,6 +169,7 @@ class ModelSync:
 
     def _load(self, model: DocumentModel, state_bytes: bytes):
         state = json.loads(state_bytes.decode("utf-8"))
+        _restore_legacy_native_prompts(model, state)
         self._history_unlimited = state.get("baron_history_unlimited") is True
         model.jobs.preserve_evicted_history = self._history_unlimited
         model.try_set_preview_layer(state.get("preview_layer", ""))
@@ -315,6 +316,35 @@ class ModelSync:
             used -= self._memory_used.pop(slot, 0)
 
 
+def _restore_legacy_native_prompts(model: DocumentModel, state: dict[str, Any]):
+    legacy_numbers = (
+        type(state.get("upscale", {}).get("factor")) is int or type(state.get("strength")) is int
+    )
+    if not legacy_numbers and state.get("root"):
+        return
+    annotation = model.document.find_annotation("baron-native-state", namespace="")
+    if not annotation:
+        return
+    try:
+        native = json.loads(bytes(annotation))
+        if native.get("schema") != 1:
+            return
+        # Older Android saves kept current prompts only in their native annotation.
+        banks = native.get("prompt_banks", {})
+        for mode, key in (("generate", "root"), ("edit", "edit")):
+            bank = banks.get(mode)
+            if bank is None and (native.get("mode") == "edit") == (mode == "edit"):
+                bank = native
+            if not isinstance(bank, dict):
+                continue
+            root = state.setdefault(key, {})
+            for source, target in (("prompt", "positive"), ("negative", "negative")):
+                if isinstance(bank.get(source), str):
+                    root[target] = bank[source]
+    except (ValueError, AttributeError, TypeError) as error:
+        log.warning(f"Could not recover legacy native prompts: {error}")
+
+
 def _serialize(obj: QObject):
     def converter(obj):
         if isinstance(obj, Style):
@@ -331,7 +361,7 @@ def _deserialize(obj: QObject, data: dict[str, Any]):
             return style or Styles.list().default
         return value
 
-    if "unblur_strength" in data and not isinstance(data["unblur_strength"], float):
+    if "unblur_strength" in data and type(data["unblur_strength"]) not in (int, float):
         data["unblur_strength"] = 0.5
 
     return deserialize(obj, data, converter)

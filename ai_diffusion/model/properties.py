@@ -198,6 +198,8 @@ def deserialize(obj: QObject, data: dict[str, Any], converter=_default_deseriali
             elif isinstance(current, QUuid):
                 value = QUuid(value)
             value = converter(type(current), value)
+            if isinstance(current, float) and type(value) is int:
+                value = float(value)
             if not isinstance(value, type(current)):
                 raise TypeError(f"{name} was '{value}', but expected {type(current)}")
             setattr(obj, name, value)

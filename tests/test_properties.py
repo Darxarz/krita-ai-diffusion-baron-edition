@@ -213,6 +213,25 @@ def test_type_mismatch():
         deserialize(a, state)
 
 
+class PersistentFloat(QObject, ObservableProperties):
+    factor = Property(2.0, persist=True)
+    factor_changed = pyqtSignal(float)
+
+
+@pytest.mark.parametrize("value", [0, 1, 2, 4, 0.7, 2.5])
+def test_deserialize_json_number_as_float(value):
+    obj = PersistentFloat()
+    deserialize(obj, {"factor": value})
+    assert type(obj.factor) is float
+    assert obj.factor == value
+
+
+@pytest.mark.parametrize("value", [True, False, "2", None, [], {}])
+def test_deserialize_float_rejects_non_numeric(value):
+    with pytest.raises(TypeError):
+        deserialize(PersistentFloat(), {"factor": value})
+
+
 def test_modified():
     called = []
 

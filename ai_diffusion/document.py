@@ -69,7 +69,7 @@ class Document(QObject):
     def annotate(self, key: str, value: QByteArray):
         pass
 
-    def find_annotation(self, key: str) -> QByteArray | None:
+    def find_annotation(self, key: str, *, namespace: str = "ai_diffusion") -> QByteArray | None:
         return None
 
     def remove_annotation(self, key: str):
@@ -258,8 +258,8 @@ class KritaDocument(Document):
     def annotate(self, key: str, value: QByteArray):
         self._doc.setAnnotation(f"ai_diffusion/{key}", f"AI Diffusion Plugin: {key}", value)
 
-    def find_annotation(self, key: str) -> QByteArray | None:
-        result = self._doc.annotation(f"ai_diffusion/{key}")
+    def find_annotation(self, key: str, *, namespace: str = "ai_diffusion") -> QByteArray | None:
+        result = self._doc.annotation(f"{namespace}/{key}" if namespace else key)
         return result if result.size() > 0 else None
 
     def remove_annotation(self, key: str):

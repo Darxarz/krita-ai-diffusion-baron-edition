@@ -180,6 +180,86 @@ async def test_sync(workflows_dir: Path):
 
 
 @qtapp
+async def test_android_integer_numbers_restore_prompts_and_history(workflows_dir: Path):
+    document = Krita.instance().openDocument("android integer JSON")
+    images = ImageCollection([Image.create(Extent(32, 24), fill=0x46112233)])
+    blob, offsets = images.to_bytes()
+    state = {
+        "version": 1,
+        "strength": 1,
+        "resolution_multiplier": 1,
+        "upscale": {"factor": 2, "strength": 1, "unblur_strength": 0},
+        "live": {"strength": 1},
+        "root": {"positive": "Android generation prompt", "negative": "blurry"},
+        "edit": {"positive": "Android edit prompt"},
+        "history": [
+            {
+                "id": "android-job",
+                "slot": 0,
+                "offsets": offsets,
+                "params": {
+                    "bounds": [11, 29, 32, 24],
+                    "name": "Android generation prompt",
+                    "seed": 4294967295,
+                },
+                "in_use": {"0": True},
+            }
+        ],
+    }
+    document.setAnnotation(
+        "ai_diffusion/ui.json", "AI Diffusion", QByteArray(json.dumps(state).encode())
+    )
+    document.setAnnotation("ai_diffusion/result0.webp", "AI Diffusion", blob)
+    model = _make_model(document, workflows_dir)
+    sync = ModelSync(model)
+
+    assert model.upscale.factor == pytest.approx(2.0) and type(model.upscale.factor) is float
+    assert model.upscale.unblur_strength == pytest.approx(0.0)
+    assert model.regions.positive == "Android generation prompt"
+    assert model.edit_regions.positive == "Android edit prompt"
+    assert model.regions.negative == "blurry"
+    job = model.jobs.find("android-job")
+    assert job is not None and job.state is JobState.finished
+    assert job.params.seed == 4294967295 and job.result_was_used(0)
+    assert job.results[0]._qimage.pixelColor(0, 0).alpha() == 70
+    assert job.params.bounds == Bounds(11, 29, 32, 24)
+    sync._save()
+    saved = json.loads(bytes(document.annotation("ai_diffusion/ui.json")))
+    assert type(saved["upscale"]["factor"]) is float
+    assert len(saved["history"]) == 1
+
+
+@qtapp
+async def test_legacy_android_prompt_banks_recovered_once(workflows_dir: Path):
+    document = Krita.instance().openDocument("legacy android prompt banks")
+    state = {"version": 1, "upscale": {"factor": 2}, "root": {"positive": "old desktop prompt"}}
+    native = {
+        "schema": 1,
+        "mode": "edit",
+        "prompt_banks": {
+            "generate": {"prompt": "Android generation", "negative": "bad generation"},
+            "edit": {"prompt": "Android edit", "negative": "bad edit"},
+        },
+    }
+    document.setAnnotation(
+        "ai_diffusion/ui.json", "AI Diffusion", QByteArray(json.dumps(state).encode())
+    )
+    document.setAnnotation("baron-native-state", "Baron", QByteArray(json.dumps(native).encode()))
+    model = _make_model(document, workflows_dir)
+    sync = ModelSync(model)
+    assert model.regions.positive == "Android generation"
+    assert model.regions.negative == "bad generation"
+    assert model.edit_regions.positive == "Android edit"
+    model.regions.positive = "new desktop prompt"
+    sync._save()
+    reopened = _make_model(document, workflows_dir)
+    restored = ModelSync(reopened)
+    assert reopened.regions.positive == "new desktop prompt"
+    assert reopened.edit_regions.positive == "Android edit"
+    assert len(restored._history) == 0
+
+
+@qtapp
 async def test_history(workflows_dir: Path):
     """ModelSync encodes finished job result images into the document annotations and
     restores them (with correct images and metadata) when loaded by a new ModelSync."""

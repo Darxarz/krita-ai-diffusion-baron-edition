@@ -99,7 +99,11 @@ def build_package():
     copytree(plugin_src, plugin_dst, ignore=ignore)
     copy(root / "scripts" / "download_models.py", plugin_dst)
     copy(root / "LICENSE", plugin_dst)
-    manual = "BARON_GUIDE_RU.md" if "-baron." in version else "README.md"
+    manual = (
+        "BARON_GUIDE_RU.md"
+        if "-baron." in version and (root / "BARON_GUIDE_RU.md").exists()
+        else "README.md"
+    )
     convert_markdown_to_html(root / manual, plugin_dst / "manual.html")
 
     make_archive(str(root / package_name), "zip", package_dir)
@@ -114,7 +118,7 @@ async def publish_package(package_path: Path, target: str):
         service_url = "https://api.interstice.cloud"
     headers = {"Authorization": f"Bearer {config.secrets.interstice_infra_token}"}
 
-    archive_data = package_path.read_bytes()
+    archive_data = await asyncio.to_thread(package_path.read_bytes)
     async with aiohttp.ClientSession(service_url, headers=headers) as session:
         print("Uploading package to", service_url)
         async with session.put(f"/plugin/upload/{version}", data=archive_data) as response:
