@@ -11,7 +11,7 @@ Darxarz / Baron Edition provides modifications and the Android port.**
 
 | Package | Download |
 | --- | --- |
-| Desktop plugin · Krita 5.x / Qt5 | **[1.53.0-baron.15 ZIP](https://github.com/Darxarz/krita-ai-diffusion-baron-edition/releases/download/v1.53.0-baron.15/krita_ai_diffusion-1.53.0-baron.15.zip)** |
+| Desktop plugin · Krita 5.x / Qt5 | **[1.53.0-baron.16 ZIP](https://github.com/Darxarz/krita-ai-diffusion-baron-edition/releases/download/v1.53.0-baron.16/krita_ai_diffusion-1.53.0-baron.16.zip)** |
 | Android application · ARM64, Android 7+ | **[Krita Baron Edition 0.1.36 APK](https://github.com/Darxarz/krita-baron-android/releases/download/v0.1.36/krita-baron-android-arm64-v0.1.36.apk)** |
 | Android project | [Source, installation and remaining port differences](https://github.com/Darxarz/krita-baron-android) |
 

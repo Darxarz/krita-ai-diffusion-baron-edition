@@ -143,3 +143,25 @@ def test_write_failure_restores_previous_files(monkeypatch, tmp_path):
         baron_updates.install_package(p, root, "1.53.0-baron.6")
     assert previous.read_text() == "previous"
     assert not (root / "ai_diffusion/updated.py").exists()
+
+
+def test_identical_locked_font_is_not_replaced(monkeypatch, tmp_path):
+    font_bytes = b"unchanged registered font"
+    p = tmp_path / "package.zip"
+    p.write_bytes(archive(extra=("ai_diffusion/fonts/AlexBrush-Regular.ttf", font_bytes)))
+    root = tmp_path / "install"
+    target = root / "ai_diffusion/fonts/AlexBrush-Regular.ttf"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(font_bytes)
+    real_replace = baron_updates.os.replace
+
+    def replace(source, destination):
+        if Path(destination) == target:
+            raise PermissionError("Windows has registered this font")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(baron_updates.os, "replace", replace)
+    baron_updates.install_package(p, root, "1.53.0-baron.6")
+    assert target.read_bytes() == font_bytes
+    assert (root / "ai_diffusion/updated.py").read_text() == "new code"
+    assert not list(root.rglob("*.baron-pending-*"))

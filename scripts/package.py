@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from shutil import copy, copytree, ignore_patterns, make_archive, rmtree
+from shutil import copy, copytree, ignore_patterns, make_archive, move, rmtree
 from typing import NamedTuple
 
 import aiohttp
@@ -97,6 +97,13 @@ def build_package():
         return ignore_patterns(".*", "*.pyc", "__pycache__", "debugpy")(path, names)
 
     copytree(plugin_src, plugin_dst, ignore=ignore)
+    fonts = plugin_dst / "fonts"
+    if "-baron." in version and (fonts / "manifest.json").exists():
+        bundled = fonts / "bundled"
+        bundled.mkdir()
+        for item in list(fonts.iterdir()):
+            if item != bundled:
+                move(str(item), str(bundled / item.name))
     copy(root / "scripts" / "download_models.py", plugin_dst)
     copy(root / "LICENSE", plugin_dst)
     manual = (

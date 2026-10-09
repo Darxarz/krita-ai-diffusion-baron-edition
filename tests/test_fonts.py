@@ -55,3 +55,30 @@ print(json.dumps({'registered': len(ids), 'families': len(families)}))
     )
     assert result.returncode == 0, result.stderr + result.stdout
     assert json.loads(result.stdout)["registered"] == 96
+
+
+def test_registered_font_does_not_lock_its_file(tmp_path: Path):
+    root = Path(__file__).parents[1]
+    script = """
+import shutil
+import sys
+from pathlib import Path
+from PyQt5.QtGui import QGuiApplication
+from ai_diffusion.fonts import load_fonts
+app = QGuiApplication([])
+folder = Path(sys.argv[1])
+font = folder / 'AlexBrush-Regular.ttf'
+shutil.copyfile('ai_diffusion/fonts/AlexBrush-Regular.ttf', font)
+assert load_fonts(folder)
+font.replace(folder / 'moved.ttf')
+assert not font.exists()
+print('Registered font can be replaced while Qt remains active')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout

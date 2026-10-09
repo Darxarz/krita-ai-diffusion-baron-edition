@@ -2,6 +2,7 @@ import json
 import shutil
 from pathlib import Path
 
+from PyQt5.QtCore import QByteArray
 from PyQt5.QtGui import QFontDatabase
 
 from .util import client_logger as log
@@ -9,8 +10,14 @@ from .util import client_logger as log
 _font_ids: dict[Path, int] = {}
 
 
+def _bundle_directory():
+    directory = Path(__file__).parent / "fonts"
+    bundled = directory / "bundled"
+    return bundled if (bundled / "manifest.json").exists() else directory
+
+
 def install_krita_fonts(resource_directory: Path):
-    bundle = Path(__file__).parent / "fonts"
+    bundle = _bundle_directory()
     manifest_path = bundle / "manifest.json"
     if not manifest_path.exists():
         return
@@ -34,11 +41,11 @@ def install_krita_fonts(resource_directory: Path):
 
 
 def load_fonts(directory: Path | None = None) -> tuple[str, ...]:
-    directory = (directory or Path(__file__).parent / "fonts").resolve()
+    directory = (directory or _bundle_directory()).resolve()
     families: set[str] = set()
     for path in sorted(directory.glob("*.ttf")):
         if path not in _font_ids:
-            font_id = QFontDatabase.addApplicationFont(str(path))
+            font_id = QFontDatabase.addApplicationFontFromData(QByteArray(path.read_bytes()))
             if font_id < 0:
                 log.warning(f"Could not load bundled font: {path.name}")
                 continue

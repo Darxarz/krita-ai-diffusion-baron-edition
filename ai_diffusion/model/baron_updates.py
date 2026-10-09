@@ -108,6 +108,8 @@ def install_package(archive: Path, destination: Path, version: str):
                 continue
             relative = source_file.relative_to(stage)
             target = destination / relative
+            if target.is_file() and source_file.read_bytes() == target.read_bytes():
+                continue
             previous = None
             if target.exists():
                 previous = backup / relative
