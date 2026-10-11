@@ -13,6 +13,7 @@ from PyQt5.QtNetwork import QNetworkReply
 
 from ..image import ImageCollection
 from ..localization import translate as _
+from ..orchestrion import migrate_url
 from ..util import client_logger as log
 from .api import WorkflowInput
 from .client import ClientEvent, User
@@ -31,7 +32,7 @@ from .resources import Arch
 def service_url(value: str):
     parts = urlsplit(value.strip().rstrip("/"))
     if parts.scheme not in ("https", "http") or not parts.hostname:
-        raise ValueError(_("Enter the website address: https://orchestrion.su"))
+        raise ValueError(_("Enter the website address: https://orchestrion.ink"))
     if parts.username or parts.password or parts.query or parts.fragment:
         raise ValueError(_("Enter the website address without a token, password or parameters"))
     if parts.scheme == "http":
@@ -43,7 +44,7 @@ def service_url(value: str):
             raise ValueError(_("Internet connections require HTTPS"))
     if parts.path not in ("", "/"):
         raise ValueError(_("Enter the website root address without /krita/TOKEN"))
-    return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    return migrate_url(urlunsplit((parts.scheme, parts.netloc, "", "", "")))
 
 
 def protect_token(token: str, decrypt=False):
@@ -232,6 +233,8 @@ class OrchestrionClient(ComfyClient):
         self._recovery_lock = asyncio.Lock()
         self._missing_checks: dict[str, int] = {}
         self._download_failures: dict[str, int] = {}
+        self._catalog_lock = asyncio.Lock()
+        self.catalog_items: list[dict] = []
 
     async def _run_job(self, job: JobInfo):
         self._submitted_jobs[job.id] = job
@@ -498,6 +501,29 @@ class OrchestrionClient(ComfyClient):
     async def connect(self):
         await self.refresh_account()
         await super().connect()
+
+    async def refresh_loras(self):
+        async with self._catalog_lock:
+            items = await self.api.catalog()
+            names = list(
+                dict.fromkeys(
+                    item["name"]
+                    for item in items
+                    if item.get("kind") == "lora" and isinstance(item.get("name"), str)
+                )
+            )
+            changed = names != self.models.loras
+            self.models.loras = names
+            self.catalog_items = items
+            return changed
+
+    async def discover_models(self, refresh: bool):
+        async for status in super().discover_models(refresh):
+            yield status
+        try:
+            await self.refresh_loras()
+        except Exception as error:
+            log.warning(f"Could not refresh Orchestrion LoRAs: {error}")
 
     async def refresh(self):
         await super().refresh()

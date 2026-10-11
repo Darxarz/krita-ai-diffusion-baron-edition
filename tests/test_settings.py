@@ -253,3 +253,38 @@ def test_sort_recent_styles(tmp_path):
     recent, remaining = sort_recent_styles(all_styles, ["delta.json", "beta.json"], 2)
     assert recent == [d, b]
     assert remaining == [a, c]
+
+
+def test_domain_migration_preserves_device_credential_and_custom_servers(tmp_path, monkeypatch):
+    path = tmp_path / "settings.json"
+    monkeypatch.setattr(Settings, "default_path", path)
+    path.write_text(
+        json.dumps({
+            "orchestrion_url": "https://orchestrion.su",
+            "orchestrion_token": "dpapi:encrypted",
+            "server_url": "http://192.168.1.5:8188",
+        })
+    )
+    s = Settings()
+    s.load(path)
+    assert s.orchestrion_url == "https://orchestrion.ink"
+    assert s.orchestrion_token == "dpapi:encrypted"
+    assert s.server_url == "http://192.168.1.5:8188"
+    s.save(path)
+    assert json.loads(path.read_text())["orchestrion_url"] == "https://orchestrion.ink"
+
+
+def test_legacy_token_url_migration_and_untrusted_domains():
+    from ai_diffusion.orchestrion import migrate_url
+
+    assert (
+        migrate_url("https://orchestrion.su/krita/secret?client=1")
+        == "https://orchestrion.ink/krita/secret?client=1"
+    )
+    for address in [
+        "https://orchestrion.su.evil.com",
+        "https://evil@orchestrion.su",
+        "https://orchestrion.su:8443",
+        "http://orchestrion.su",
+    ]:
+        assert migrate_url(address) == address

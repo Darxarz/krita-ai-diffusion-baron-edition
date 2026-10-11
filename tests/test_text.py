@@ -431,3 +431,15 @@ class TestSelectOnCursorPos:
         assert select_on_cursor_pos("(foo:1.3), bar, baz", 1) == (0, 9)
         assert select_on_cursor_pos("foo, (bar:1.1), baz", 6) == (5, 14)
         assert select_on_cursor_pos("foo, (bar:1.1) <bar:baz:1.0>", 16) == (15, 28)
+
+
+def test_append_gallery_lora_preserves_prompt_and_existing_weights():
+    from ai_diffusion.text import append_lora
+
+    assert (
+        append_lora("portrait", "action\\ExcessiveAnimeNosebleed-000013.safetensors")
+        == "portrait <lora:action/ExcessiveAnimeNosebleed-000013>"
+    )
+    weighted = "portrait <lora:action/ExcessiveAnimeNosebleed-000013:0.6>"
+    assert append_lora(weighted, "action/ExcessiveAnimeNosebleed-000013.safetensors") == weighted
+    assert append_lora("", "styles/Ink.pt") == "<lora:styles/Ink>"

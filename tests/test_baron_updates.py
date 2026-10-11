@@ -30,7 +30,7 @@ def manifest(data):
         "channel": "stable",
         "windows": {
             "version": "1.53.0-baron.6",
-            "url": "https://orchestrion.su/baron-updates/releases/plugin.zip",
+            "url": "https://orchestrion.ink/baron-updates/releases/plugin.zip",
             "bytes": len(data),
             "sha256": hashlib.sha256(data).hexdigest(),
         },
@@ -86,7 +86,7 @@ async def test_corrupt_download_never_replaces_plugin(tmp_path):
     "field,value",
     [
         ("url", "https://evil.example/baron-updates/releases/plugin.zip"),
-        ("url", "http://orchestrion.su/baron-updates/releases/plugin.zip"),
+        ("url", "http://orchestrion.ink/baron-updates/releases/plugin.zip"),
         ("version", "1.53.0"),
         ("bytes", -1),
         ("sha256", "broken"),

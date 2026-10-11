@@ -72,6 +72,19 @@ def merge_prompt(prompt: str, style_prompt: str, language: str = ""):
     return f"{prompt}, {style_prompt}"
 
 
+def append_lora(prompt: str, name: str):
+    name = name.replace("\\", "/").strip()
+    name = re.sub(r"\.(safetensors|ckpt|pt)$", "", name, flags=re.IGNORECASE)
+    if not name or any(char in name for char in "<>:\r\n"):
+        raise ValueError("Invalid LoRA name")
+    for match in pattern_lora.finditer(prompt):
+        existing = match[1].strip().replace("\\", "/")
+        existing = re.sub(r"\.(safetensors|ckpt|pt)$", "", existing, flags=re.IGNORECASE)
+        if existing.casefold() == name.casefold():
+            return prompt
+    return prompt + (" " if prompt and not prompt[-1].isspace() else "") + f"<lora:{name}>"
+
+
 def extract_loras(prompt: str, lora_files: FileCollection):
     loras: list[LoraInput] = []
 

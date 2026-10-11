@@ -7,7 +7,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 from zipfile import ZipFile
 
-feed_url = "https://orchestrion.su/baron-updates/stable.json"
+feed_url = "https://orchestrion.ink/baron-updates/stable-ink.json"
 max_package_bytes = 32 * 1024 * 1024
 
 

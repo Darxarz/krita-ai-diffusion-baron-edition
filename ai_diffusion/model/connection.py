@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Iterable
 from enum import Enum
 
-from PyQt5.QtCore import QObject, QUrl, pyqtSignal
+from PyQt5.QtCore import QObject, QTimer, QUrl, pyqtSignal
 from PyQt5.QtGui import QDesktopServices
 
 from .. import eventloop, util
@@ -61,6 +61,11 @@ class Connection(QObject, ObservableProperties):
         self._workflows: dict[str, dict] = {}
         self._temporary_disconnect = False
         self._auth_task: asyncio.Task | None = None
+        self._catalog_task: asyncio.Task | None = None
+        self._catalog_timer = QTimer(self)
+        self._catalog_timer.setInterval(60000)
+        self._catalog_timer.timeout.connect(self._refresh_catalog)
+        self._catalog_timer.start()
         self.sign_in_code = ""
         self.error_kind = ""
         self.missing_resources: MissingResources | None = None
@@ -206,6 +211,10 @@ class Connection(QObject, ObservableProperties):
         eventloop.run(self._connect(client))
 
     async def disconnect(self):  # type: ignore (hides QObject.disconnect)
+        if self._catalog_task is not None:
+            self._catalog_task.cancel()
+            await asyncio.gather(self._catalog_task, return_exceptions=True)
+            self._catalog_task = None
         if self._task is not None:
             task = self._task
             self._task = None
@@ -223,6 +232,23 @@ class Connection(QObject, ObservableProperties):
 
     def cancel(self, job_ids: Iterable[str]):
         eventloop.run(self.client.cancel(job_ids))
+
+    def _refresh_catalog(self):
+        client = self.client_if_connected
+        if not isinstance(client, OrchestrionClient) or (
+            self._catalog_task and not self._catalog_task.done()
+        ):
+            return
+
+        async def refresh():
+            try:
+                changed = await client.refresh_loras()
+                if changed and self.client_if_connected is client:
+                    self.models_changed.emit()
+            except Exception as error:
+                util.client_logger.warning(f"Could not refresh Orchestrion LoRAs: {error}")
+
+        self._catalog_task = eventloop.run(refresh())
 
     def refresh(self):
         async def _refresh():

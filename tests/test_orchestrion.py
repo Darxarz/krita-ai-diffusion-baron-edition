@@ -29,7 +29,7 @@ from .conftest import qtapp
 
 
 @pytest.mark.parametrize(
-    "url", ["https://orchestrion.su", "http://192.168.50.191:3001", "http://127.0.0.1:3001"]
+    "url", ["https://orchestrion.ink", "http://192.168.50.191:3001", "http://127.0.0.1:3001"]
 )
 def test_service_url(url):
     assert service_url(url + "/") == url
@@ -90,8 +90,8 @@ def test_device_transport_credentials_are_separate():
     settings = Settings()
     settings.server_mode = ServerMode.orchestrion
     assert settings.access_token == ""
-    client = OrchestrionClient("https://orchestrion.su", "test-device-key")
-    assert client.url == "https://orchestrion.su/krita/connection"
+    client = OrchestrionClient("https://orchestrion.ink", "test-device-key")
+    assert client.url == "https://orchestrion.ink/krita/connection"
     assert client._token == "test-device-key"
     assert client._requests._bearer_token == "test-device-key"
     assert client.api.requests._bearer_token == "test-device-key"
@@ -105,7 +105,7 @@ def test_device_transport_credentials_are_separate():
 @pytest.mark.parametrize("custom_token", ["", "different-custom-key"])
 def test_device_websocket_uses_browser_credential(monkeypatch, custom_token):
     monkeypatch.setattr(global_settings, "server_authorization", custom_token)
-    client = OrchestrionClient("https://orchestrion.su", "ork_krita_device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "ork_krita_device-key")
     assert client._websocket_args()["additional_headers"] == {
         "Authorization": "Bearer ork_krita_device-key"
     }
@@ -114,7 +114,7 @@ def test_device_websocket_uses_browser_credential(monkeypatch, custom_token):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["pending", "running", "missing", "completed", "failed"])
 async def test_waiting_job_reconciles_server_without_resubmission(monkeypatch, state):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
     client._waiting_job.set(job)
@@ -171,7 +171,7 @@ async def test_waiting_job_reconciles_server_without_resubmission(monkeypatch, s
 
 @pytest.mark.asyncio
 async def test_waiting_job_does_not_race_inflight_submit_or_websocket(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     client._waiting_job.set(job)
     requests = []
@@ -194,7 +194,7 @@ async def test_waiting_job_does_not_race_inflight_submit_or_websocket(monkeypatc
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["running", "completed", "failed", "empty"])
 async def test_active_job_recovers_missing_completion(monkeypatch, state):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
     client._active_job = job
@@ -237,7 +237,7 @@ async def test_active_job_recovers_missing_completion(monkeypatch, state):
 
 @pytest.mark.asyncio
 async def test_recovery_and_websocket_complete_only_once(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
     client._active_job = job
@@ -266,7 +266,7 @@ async def test_recovery_and_websocket_complete_only_once(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_missing_image_frame_does_not_reuse_previous_result(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
     client._active_job = job
@@ -279,7 +279,7 @@ async def test_missing_image_frame_does_not_reuse_previous_result(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_following_job_does_not_discard_result_with_lost_completion():
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     old, new = [JobInfo.create(WorkflowInput(WorkflowKind.generate)) for _ in range(2)]
     old.submitted = new.submitted = True
     client._active_job = old
@@ -293,7 +293,7 @@ async def test_following_job_does_not_discard_result_with_lost_completion():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("ack", ["running", "history", "absent"])
 async def test_lost_prompt_acknowledgement_never_resubmits(monkeypatch, ack):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     calls = []
 
@@ -322,7 +322,7 @@ async def test_lost_prompt_acknowledgement_never_resubmits(monkeypatch, ack):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("recovers", [True, False])
 async def test_completed_image_download_retries_are_bounded(monkeypatch, recovers):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
     client._active_job = job
@@ -360,7 +360,7 @@ async def test_completed_image_download_retries_are_bounded(monkeypatch, recover
 
 @pytest.mark.asyncio
 async def test_http_monitor_delivers_completion_when_websocket_is_silent(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     client._queue_check_interval = 0.01
     job = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     job.submitted = True
@@ -405,7 +405,7 @@ async def test_http_monitor_delivers_completion_when_websocket_is_silent(monkeyp
 
 @pytest.mark.asyncio
 async def test_progress_stays_below_complete_until_result():
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     await client._report(ClientEvent.progress, "job", 1.3)
     assert client._messages.get_nowait().progress == pytest.approx(0.99)
 
@@ -413,7 +413,7 @@ async def test_progress_stays_below_complete_until_result():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", [401, 403])
 async def test_revoked_login_does_not_leave_jobs_stuck(status):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     old, new = [JobInfo.create(WorkflowInput(WorkflowKind.generate)) for _ in range(2)]
     old.submitted = new.submitted = True
     client._active_job = old
@@ -427,7 +427,7 @@ async def test_revoked_login_does_not_leave_jobs_stuck(status):
 
 @pytest.mark.asyncio
 async def test_post_deadline_is_visible_and_cancels_request(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     client._request_timeout = 0.01
     cancelled = asyncio.Event()
 
@@ -519,7 +519,7 @@ async def test_real_http_recovers_dropped_websocket_messages(monkeypatch, lost):
 
 @pytest.mark.asyncio
 async def test_orphaned_slot_no_longer_blocks_following_requests(monkeypatch):
-    client = OrchestrionClient("https://orchestrion.su", "device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
     old = JobInfo.create(WorkflowInput(WorkflowKind.generate))
     old.submitted = True
     client._waiting_job.set(old)
@@ -553,7 +553,7 @@ async def test_live_listener_authenticates_with_device_key(monkeypatch):
     from ai_diffusion.backend import comfy_client
 
     monkeypatch.setattr(global_settings, "server_authorization", "legacy-custom-key")
-    client = OrchestrionClient("https://orchestrion.su", "ork_krita_device-key")
+    client = OrchestrionClient("https://orchestrion.ink", "ork_krita_device-key")
     connections = []
 
     async def connect(url, **kwargs):
@@ -570,7 +570,7 @@ async def test_live_listener_authenticates_with_device_key(monkeypatch):
     monkeypatch.setattr(client, "_subscribe_workflows", subscribe)
     monkeypatch.setattr(client, "_listen_websocket", listen)
     await client._listen()
-    assert connections[0][0].startswith("wss://orchestrion.su/krita/connection/ws?clientId=")
+    assert connections[0][0].startswith("wss://orchestrion.ink/krita/connection/ws?clientId=")
     assert connections[0][1]["additional_headers"] == {
         "Authorization": "Bearer ork_krita_device-key"
     }
@@ -653,7 +653,7 @@ async def test_device_transport_delivers_progress_and_image(monkeypatch):
 @pytest.mark.parametrize("as_byte_array", [False, True])
 async def test_cached_image_closed_upload_requires_exact_match(monkeypatch, as_byte_array):
     client = DeviceRequests("device-key")
-    url = "https://orchestrion.su/krita/connection/api/etn/image/cached"
+    url = "https://orchestrion.ink/krita/connection/api/etn/image/cached"
     payload = b"original input image"
     requests = []
 
@@ -677,7 +677,7 @@ async def test_cached_image_closed_upload_requires_exact_match(monkeypatch, as_b
 @pytest.mark.parametrize("cached", [b"different image", None])
 async def test_closed_upload_with_missing_or_different_cache_still_fails(monkeypatch, cached):
     client = DeviceRequests("device-key")
-    url = "https://orchestrion.su/krita/connection/api/etn/image/cached"
+    url = "https://orchestrion.ink/krita/connection/api/etn/image/cached"
     original_error = NetworkError(
         QNetworkReply.NetworkError.RemoteHostClosedError, "Connection closed", url
     )
@@ -707,7 +707,7 @@ async def test_closed_upload_with_missing_or_different_cache_still_fails(monkeyp
 )
 async def test_other_upload_failures_are_not_accepted_as_cached(monkeypatch, code, path):
     client = DeviceRequests("device-key")
-    url = f"https://orchestrion.su/krita/connection/api/etn/{path}"
+    url = f"https://orchestrion.ink/krita/connection/api/etn/{path}"
 
     async def put(self, requested_url, data):
         raise NetworkError(code, "Failed", requested_url)
@@ -740,7 +740,7 @@ def test_gallery_lora_family_compatibility(family, arch, compatible):
 
 @pytest.mark.asyncio
 async def test_sign_in_pending_and_slow_down(monkeypatch):
-    api = OrchestrionAPI("https://orchestrion.su")
+    api = OrchestrionAPI("https://orchestrion.ink")
     polls = iter([
         {"error": "authorization_pending"},
         {"error": "slow_down"},
@@ -773,7 +773,7 @@ async def test_sign_in_pending_and_slow_down(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_sign_in_denial(monkeypatch):
-    api = OrchestrionAPI("https://orchestrion.su")
+    api = OrchestrionAPI("https://orchestrion.ink")
 
     async def post(url, data):
         return (
@@ -791,3 +791,90 @@ async def test_sign_in_denial(monkeypatch):
     await anext(stream)
     with pytest.raises(ValueError, match="denied"):
         await anext(stream)
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("https://orchestrion.su", "https://orchestrion.ink"),
+        ("https://orchestrion.su:443/", "https://orchestrion.ink"),
+        ("https://custom.example", "https://custom.example"),
+    ],
+)
+def test_official_domain_migration(old, new):
+    assert service_url(old) == new
+
+
+@pytest.mark.asyncio
+async def test_catalog_refresh_adds_uploaded_lora_and_removes_expired_lora(monkeypatch):
+    from ai_diffusion.files import File, FileCollection, FileFilter, FileFormat, FileSource
+    from ai_diffusion.text import extract_loras
+
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
+    client.models.loras = ["expired.safetensors"]
+    items = [
+        {"kind": "lora", "name": "action/ExcessiveAnimeNosebleed-000013.safetensors"},
+        {"kind": "checkpoint", "name": "base.safetensors"},
+    ]
+
+    async def catalog():
+        return items
+
+    monkeypatch.setattr(client.api, "catalog", catalog)
+    assert await client.refresh_loras()
+    assert client.models.loras == [items[0]["name"]]
+    assert not await client.refresh_loras()
+    files = FileCollection()
+    files.update(
+        [File.remote(name, FileFormat.lora) for name in client.models.loras], FileSource.remote
+    )
+    completion = FileFilter(files)
+    completion.available_only = True
+    assert completion.rowCount() == 1
+    assert completion.index(0, 0).data() == "action/ExcessiveAnimeNosebleed-000013"
+    prompt, loras = extract_loras("portrait <lora:action/ExcessiveAnimeNosebleed-000013>", files)
+    assert prompt == "portrait"
+    assert loras[0].name == items[0]["name"]
+
+
+def test_gallery_lora_appends_to_current_prompt_without_changing_style(monkeypatch):
+    from types import SimpleNamespace
+    from typing import cast
+    from unittest.mock import Mock
+
+    from ai_diffusion.model import model as _document_model
+    from ai_diffusion.ui import orchestrion as ui
+
+    assert _document_model.DocumentModel
+    selected = {
+        "kind": "lora",
+        "name": "action/ExcessiveAnimeNosebleed-000013.safetensors",
+        "title": "Nosebleed",
+        "family": "Illustrious",
+    }
+    client = OrchestrionClient("https://orchestrion.ink", "device-key")
+    client.models.loras = [selected["name"]]
+    region = SimpleNamespace(positive="portrait")
+    style = object()
+    active = SimpleNamespace(
+        style=style, arch=Arch.sdxl, active_regions=SimpleNamespace(active_or_root=region)
+    )
+    monkeypatch.setattr(
+        ui,
+        "root",
+        SimpleNamespace(
+            active_model=active, connection=SimpleNamespace(client_if_connected=client)
+        ),
+    )
+    styles = Mock()
+    monkeypatch.setattr(ui.Styles, "list", lambda: styles)
+    gallery = SimpleNamespace(
+        list=SimpleNamespace(currentItem=lambda: SimpleNamespace(data=lambda role: selected)),
+        accept=Mock(),
+    )
+    ui.ModelGallery._apply(cast(ui.ModelGallery, gallery))
+    assert region.positive == "portrait <lora:action/ExcessiveAnimeNosebleed-000013>"
+    assert active.style is style
+    styles.create.assert_not_called()
+    ui.ModelGallery._apply(cast(ui.ModelGallery, gallery))
+    assert region.positive.count("<lora:") == 1

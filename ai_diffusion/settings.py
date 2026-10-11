@@ -10,6 +10,7 @@ from typing import Any, ClassVar, NamedTuple
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from .localization import translate as _
+from .orchestrion import migrate_url, website_url
 from .platform_tools import is_macos, is_windows
 from .util import client_logger as log
 from .util import encode_json, read_json_with_comments, user_data_dir
@@ -187,7 +188,7 @@ class Settings(QObject):
     _access_token = Setting(_("Cloud Access Token"), "")
 
     orchestrion_url: str
-    _orchestrion_url = Setting("Orchestrion", "https://orchestrion.su")
+    _orchestrion_url = Setting("Orchestrion", website_url)
     orchestrion_token: str
     _orchestrion_token = Setting(_("Orchestrion device credential"), "")
 
@@ -564,6 +565,8 @@ class Settings(QObject):
                     else:
                         log.error(f"{path}: {v} is not a valid value for '{k}'")
                         self._values[k] = setting.default
+            for key in ("orchestrion_url", "server_url"):
+                self._values[key] = migrate_url(self._values[key])
         except Exception as e:
             log.error(f"Failed to load settings: {e}")
 

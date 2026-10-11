@@ -35,8 +35,10 @@ from ..localization import translate as _
 from ..model.connection import ConnectionState
 from ..model.jobs import JobKind
 from ..model.root import root
+from ..orchestrion import website_url
 from ..settings import settings
 from ..style import Styles
+from ..text import append_lora
 from . import theme
 
 _panel_style = """
@@ -70,7 +72,7 @@ class OrchestrionWidget(QWidget):
         description.setWordWrap(True)
         layout.addWidget(description)
         self.url = QLineEdit(settings.orchestrion_url, self)
-        self.url.setPlaceholderText("https://orchestrion.su")
+        self.url.setPlaceholderText(website_url)
         layout.addWidget(QLabel(_("Orchestrion address"), self))
         layout.addWidget(self.url)
         self.status = QLabel(self)
@@ -260,7 +262,9 @@ class ModelGallery(QDialog):
     async def _load(self):
         try:
             if isinstance(client := root.connection.client_if_connected, OrchestrionClient):
-                self._items = await client.api.catalog()
+                await client.refresh_loras()
+                root.connection.models_changed.emit()
+                self._items = client.catalog_items
                 self._filter()
         except Exception as e:
             self.details.setText(str(e))
@@ -379,10 +383,10 @@ class ModelGallery(QDialog):
                 return
             if lora_compatible(model.get("family", ""), root.active_model.arch) is False:
                 return
-            style = styles.create("orchestrion-lora.json", copy_from=current)
-            style.loras = [lora for lora in style.loras if lora["name"] != model["name"]] + [
-                {"name": model["name"], "strength": 1.0, "enabled": True}
-            ]
+            region = root.active_model.active_regions.active_or_root
+            region.positive = append_lora(region.positive, model["name"])
+            self.accept()
+            return
         style.name = model["title"]
         style.save()
         styles.changed.emit()
