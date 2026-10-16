@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/images/baron-hero.svg" alt="Krita Baron Edition" width="100%"></p>
 
-# Krita AI Diffusion — Baron Edition
+# Krita AI Diffusion вЂ” Baron Edition
 
 A desktop fork of [Acly's Krita AI Diffusion](https://github.com/Acly/krita-ai-diffusion),
 with a companion native Android edition. Generate, inpaint, edit, upscale and use
@@ -11,8 +11,8 @@ Darxarz / Baron Edition provides modifications and the Android port.**
 
 | Package | Download |
 | --- | --- |
-| Desktop plugin · Krita 5.x / Qt5 | **[1.53.0-baron.17 ZIP](https://github.com/Darxarz/krita-ai-diffusion-baron-edition/releases/download/v1.53.0-baron.17/krita_ai_diffusion-1.53.0-baron.17.zip)** |
-| Android application · ARM64, Android 7+ | **[Krita Baron Edition 0.1.36 APK](https://github.com/Darxarz/krita-baron-android/releases/download/v0.1.36/krita-baron-android-arm64-v0.1.36.apk)** |
+| Desktop plugin В· Krita 5.x / Qt5 | **[1.53.0-baron.18 ZIP](https://github.com/Darxarz/krita-ai-diffusion-baron-edition/releases/download/v1.53.0-baron.18/krita_ai_diffusion-1.53.0-baron.18.zip)** |
+| Android application В· ARM64, Android 7+ | **[Krita Baron Edition 0.1.36 APK](https://github.com/Darxarz/krita-baron-android/releases/download/v0.1.36/krita-baron-android-arm64-v0.1.36.apk)** |
 | Android project | [Source, installation and remaining port differences](https://github.com/Darxarz/krita-baron-android) |
 
 ## Baron additions
@@ -31,8 +31,8 @@ part of the desktop plugin. The Android edition has a smaller feature set:
 ## Install
 
 1. Download the **plugin ZIP** from Releases.
-2. In Krita, choose **Tools → Scripts → Import Python Plugin from File** and select it.
-3. Restart Krita; enable the plugin under **Settings → Configure Krita → Python Plugin Manager**.
+2. In Krita, choose **Tools в†’ Scripts в†’ Import Python Plugin from File** and select it.
+3. Restart Krita; enable the plugin under **Settings в†’ Configure Krita в†’ Python Plugin Manager**.
 4. Open the **Krita AI Diffusion Baron Edition** docker and connect to your backend.
 
 This uses the original `ai_diffusion` identifier and replaces an existing version.
@@ -42,10 +42,10 @@ which model and reference combinations are available.
 
 ## Original project and documentation
 
-[Original plugin](https://github.com/Acly/krita-ai-diffusion) ·
-[Handbook](https://docs.interstice.cloud) · [Preserved upstream README](UPSTREAM_README.md)
-· [Native Android port](https://github.com/Darxarz/krita-baron-android)
+[Original plugin](https://github.com/Acly/krita-ai-diffusion) В·
+[Handbook](https://docs.interstice.cloud) В· [Preserved upstream README](UPSTREAM_README.md)
+В· [Native Android port](https://github.com/Darxarz/krita-baron-android)
 
 Krita is created by the Krita team and contributors. Baron Edition is an independent
 modified edition, not an official Acly or Krita release. Existing authorship and
-licenses are preserved. [GPL-3.0-or-later](LICENSE) · [Contributing](CONTRIBUTING.md).
+licenses are preserved. [GPL-3.0-or-later](LICENSE) В· [Contributing](CONTRIBUTING.md).
