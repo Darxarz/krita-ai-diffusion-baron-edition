@@ -8,6 +8,16 @@
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.",
     "ENSD": "ENSD",
-    "ENSD must be between 0 and 4294967295": "ENSD must be between 0 and 4294967295"
+    "ENSD must be between 0 and 4294967295": "ENSD must be between 0 and 4294967295",
+    "Krea 2: Reference placement": "Krea 2: Reference placement",
+    "Automatic": "Automatic",
+    "Aligned with canvas": "Aligned with canvas",
+    "Beside canvas (restaging)": "Beside canvas (restaging)",
+    "Bag of features (experimental)": "Bag of features (experimental)",
+    "Reference placement": "Reference placement",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "Choose a Krea 2 Edit LoRA matching the selected reference purpose",
+    "Unknown Krea 2 reference placement": "Unknown Krea 2 reference placement",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI"
   }
 }

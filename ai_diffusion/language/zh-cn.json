@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "分离期间画布尺寸发生变化。请重新运行。",
     "Select a paint layer or group to process": "请选择要处理的绘画图层或组",
     "Unsupported document color mode": "不支持文档的颜色模式",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit 需要且只能启用一项 Krea 2 Identity Edit LoRA",
     "Unknown Krea 2 reference purpose": "未知的 Krea 2 参考用途",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit 目前仅支持全局 LoRA；请移除区域 LoRA",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "此工作流请选择 Krea 2 Identity Edit 或 Style Reference LoRA",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "额外噪声种子偏移。除非需要匹配 A1111 预设，否则保持为 0。",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111 权重、BREAK、AND 和提示词调度。服务器需要 smZ 节点；仅支持 SD 1.5 和 SDXL。",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "与网站相同的 GPU 噪声设置。需要 A1111 语法和 smZ Settings。",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2：参考图位置",
+    "Aligned with canvas": "与画布对齐",
+    "Beside canvas (restaging)": "画布旁边（重新构图）",
+    "Bag of features (experimental)": "特征集合（实验性）",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit 需要且只能启用一个 Identity 或 General Edit LoRA",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "请选择与参考用途匹配的 Krea 2 Edit LoRA",
+    "Unknown Krea 2 reference placement": "未知的 Krea 2 参考图位置",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 需要 ComfyUI-Krea2Edit 2.0 或更新版本；请更新节点并重启 ComfyUI"
   }
 }

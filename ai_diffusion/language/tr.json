@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "Ayırma sırasında tuval boyutu değişti. Yeniden çalıştırın.",
     "Select a paint layer or group to process": "İşlenecek bir boyama katmanı veya grup seçin",
     "Unsupported document color mode": "Belge renk modu desteklenmiyor",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit tam olarak bir etkin Krea 2 Identity Edit LoRA gerektirir",
     "Unknown Krea 2 reference purpose": "Bilinmeyen Krea 2 referans amacı",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit şu anda yalnızca genel LoRA’ları destekler; bölgesel LoRA’ları kaldırın",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "Bu workflow için Krea 2 Identity Edit veya Style Reference LoRA seçin",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "Ek gürültü tohumu farkı. A1111 ön ayarını eşleştirmiyorsanız 0 bırakın.",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111 ağırlıkları, BREAK, AND ve istem zamanlaması. Sunucuda smZ düğümleri gerekir; yalnızca SD 1.5 ve SDXL.",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "Sitedeki gibi GPU gürültüsü. A1111 sözdizimi ve smZ Settings gerekir.",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: Referans yerleşimi",
+    "Aligned with canvas": "Tuvalle hizalı",
+    "Beside canvas (restaging)": "Tuvalin yanında (yeni kompozisyon)",
+    "Bag of features (experimental)": "Özellik kümesi (deneysel)",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit için tam olarak bir etkin Identity veya General Edit LoRA gerekir",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "Seçili referans amacına uygun bir Krea 2 Edit LoRA seçin",
+    "Unknown Krea 2 reference placement": "Bilinmeyen Krea 2 referans yerleşimi",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 için ComfyUI-Krea2Edit 2.0 veya üstü gerekir; düğümleri güncelleyip ComfyUI uygulamasını yeniden başlatın"
   }
 }

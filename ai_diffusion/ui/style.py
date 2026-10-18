@@ -720,8 +720,21 @@ class StylePresets(SettingsTab):
 
         add("loras", LoraList(StyleSettings.loras, self))
         reference_mode = ComboBoxSetting(StyleSettings.krea2_reference_mode, parent=self)
-        reference_mode.set_items([(_("Identity"), "identity"), (_("Style"), "style")])
+        reference_mode.set_items([
+            (_("Identity"), "identity"),
+            ("Identity Edit V2", "identity_v2"),
+            ("General Edit V2", "general_v2"),
+            (_("Style"), "style"),
+        ])
         add("krea2_reference_mode", reference_mode)
+        placement = ComboBoxSetting(StyleSettings.krea2_ref_position, parent=self)
+        placement.set_items([
+            (_("Automatic"), "auto"),
+            (_("Aligned with canvas"), "aligned (trained)"),
+            (_("Beside canvas (restaging)"), "beside (right of target)"),
+            (_("Bag of features (experimental)"), "bag of features"),
+        ])
+        add("krea2_ref_position", placement)
         add("krea2_ref_boost", SliderSetting(StyleSettings.krea2_ref_boost, self, 0, 10, "{:.1f}"))
         add(
             "krea2_grounding_px",
@@ -876,7 +889,12 @@ class StylePresets(SettingsTab):
     def _show_edit_style(self, style: Style):
         arch = resolve_arch(style, root.connection.client_if_connected)
         self._edit_style.visible = not arch.supports_edit
-        for name in ["krea2_reference_mode", "krea2_ref_boost", "krea2_grounding_px"]:
+        for name in [
+            "krea2_reference_mode",
+            "krea2_ref_boost",
+            "krea2_grounding_px",
+            "krea2_ref_position",
+        ]:
             self._style_widgets[name].visible = arch is Arch.krea2
 
     def _setup_edit_style(self):

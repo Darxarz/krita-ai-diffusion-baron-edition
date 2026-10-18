@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "분리 중 캔버스 크기가 변경되었습니다. 다시 실행하세요.",
     "Select a paint layer or group to process": "처리할 페인트 레이어 또는 그룹을 선택하세요",
     "Unsupported document color mode": "문서의 색상 모드를 지원하지 않습니다",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit에는 활성화된 Krea 2 Identity Edit LoRA가 정확히 하나 필요합니다",
     "Unknown Krea 2 reference purpose": "알 수 없는 Krea 2 참조 용도입니다",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit는 현재 전체 LoRA만 지원합니다. 영역 LoRA를 제거하세요",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "이 워크플로에는 Krea 2 Identity Edit 또는 Style Reference LoRA를 선택하세요",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "추가 노이즈 시드 차이입니다. A1111 프리셋을 재현할 때를 제외하고 0으로 유지하세요.",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111 가중치, BREAK, AND와 프롬프트 일정. 서버에 smZ 노드가 필요하며 SD 1.5와 SDXL만 지원합니다.",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "사이트와 같은 GPU 노이즈 설정. A1111 문법과 smZ Settings가 필요합니다.",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: 참조 배치",
+    "Aligned with canvas": "캔버스에 정렬",
+    "Beside canvas (restaging)": "캔버스 옆 (구도 변경)",
+    "Bag of features (experimental)": "특징 모음 (실험적)",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit에는 활성화된 Identity 또는 General Edit LoRA가 정확히 하나 필요합니다",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "선택한 참조 목적에 맞는 Krea 2 Edit LoRA를 선택하세요",
+    "Unknown Krea 2 reference placement": "알 수 없는 Krea 2 참조 배치",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2에는 ComfyUI-Krea2Edit 2.0 이상이 필요합니다. 노드를 업데이트하고 ComfyUI를 다시 시작하세요"
   }
 }

@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "分離中にキャンバスのサイズが変わりました。再実行してください。",
     "Select a paint layer or group to process": "処理する描画レイヤーまたはグループを選択してください",
     "Unsupported document color mode": "ドキュメントのカラーモードに対応していません",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit には有効な Krea 2 Identity Edit LoRA がちょうど 1 つ必要です",
     "Unknown Krea 2 reference purpose": "不明な Krea 2 参照画像の用途です",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit は現在全体の LoRA のみ対応しています。領域 LoRA を削除してください",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "このワークフローでは Krea 2 Identity Edit または Style Reference LoRA を選択してください",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "追加ノイズのシード差分。A1111プリセットを再現する場合以外は0にしてください。",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "A1111の重み、BREAK、AND、プロンプトの時間指定。サーバーにsmZノードが必要です。SD 1.5とSDXLのみ。",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "サイトと同じGPUノイズ設定。A1111構文とsmZ Settingsが必要です。",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: 参照の配置",
+    "Aligned with canvas": "キャンバスに揃える",
+    "Beside canvas (restaging)": "キャンバスの隣（構図変更）",
+    "Bag of features (experimental)": "特徴の集合（実験的）",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit では有効な Identity または General Edit LoRA がちょうど1つ必要です",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "選択した参照の目的に合う Krea 2 Edit LoRA を選んでください",
+    "Unknown Krea 2 reference placement": "不明な Krea 2 参照配置です",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 には ComfyUI-Krea2Edit 2.0 以降が必要です。ノードを更新して ComfyUI を再起動してください"
   }
 }

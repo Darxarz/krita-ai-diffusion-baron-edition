@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "O tamanho da tela mudou durante a separação. Execute novamente.",
     "Select a paint layer or group to process": "Selecione uma camada de pintura ou grupo para processar",
     "Unsupported document color mode": "Modo de cor do documento não compatível",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit exige exatamente uma LoRA Krea 2 Identity Edit ativada",
     "Unknown Krea 2 reference purpose": "Finalidade da referência Krea 2 desconhecida",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit só aceita LoRA globais no momento; remova as LoRA regionais",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "Escolha Krea 2 Identity Edit ou Style Reference LoRA para este workflow",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "Deslocamento da semente do ruído adicional. Mantenha 0, exceto ao reproduzir uma predefinição A1111.",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "Pesos A1111, BREAK, AND e agendamento do prompt. Requer nós smZ; apenas SD 1.5 e SDXL.",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "Ruído GPU como no site. Requer sintaxe A1111 e smZ Settings.",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: Posição da referência",
+    "Aligned with canvas": "Alinhar à tela",
+    "Beside canvas (restaging)": "Ao lado da tela (nova composição)",
+    "Bag of features (experimental)": "Conjunto de características (experimental)",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit requer exatamente uma LoRA Identity ou General Edit ativada",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "Escolha uma LoRA Krea 2 Edit correspondente ao objetivo da referência",
+    "Unknown Krea 2 reference placement": "Posição de referência Krea 2 desconhecida",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 requer ComfyUI-Krea2Edit 2.0 ou posterior; atualize os nós e reinicie o ComfyUI"
   }
 }

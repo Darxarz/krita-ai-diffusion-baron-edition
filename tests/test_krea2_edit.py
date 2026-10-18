@@ -158,7 +158,7 @@ def test_reference_limit_counts_canvas(mode, refs):
 def test_missing_resources_fail_before_submission():
     models, style = models_and_style()
     models.loras = []
-    with pytest.raises(RuntimeError, match="Identity Edit LoRA"):
+    with pytest.raises(RuntimeError, match="Identity or General Edit LoRA"):
         request(models, style)
     models.loras = [identity_name]
     models.node_inputs = ComfyObjectInfo({})
@@ -192,3 +192,107 @@ def test_named_reference_and_face_instruction():
     prepared = prepare_prompts(cond, style, 1, Arch.krea2)
     assert prepared.conditioning.control[0].mode is ControlMode.reference
     assert "Keep the face from image 1." in prepared.conditioning.positive
+
+
+def v2_models_and_style(purpose="identity_v2"):
+    models, style = models_and_style()
+    style.krea2_reference_mode = purpose
+    family = "general" if purpose == "general_v2" else "identity"
+    models.loras += [f"krea_v2/krea2_{family}_edit_v2_r128.safetensors"]
+    models.node_inputs.nodes["Krea2EditModelPatch"] = {
+        "input": {
+            "optional": {
+                "ref_position": [
+                    ["aligned (trained)", "beside (right of target)", "bag of features"]
+                ],
+                "ref_position_a": [
+                    ["aligned (trained)", "beside (right of target)", "bag of features"]
+                ],
+            }
+        }
+    }
+    return models, style
+
+
+@pytest.mark.parametrize("purpose", ["identity_v2", "general_v2"])
+@pytest.mark.parametrize("refs", [0, 1])
+def test_v2_selects_one_matching_adapter_and_placement(purpose, refs):
+    models, style = v2_models_and_style(purpose)
+    work = request(models, style, refs=refs)
+    family = "general" if purpose == "general_v2" else "identity"
+    assert work.models is not None
+    assert work.models.loras == [LoraInput(f"krea_v2/krea2_{family}_edit_v2_r128.safetensors", 1.0)]
+    graph = create(work, models).root
+    node = next(n["inputs"] for n in graph.values() if n["class_type"] == "Krea2EditModelPatch")
+    assert node["fit_mode"] == "fit"
+    assert node["ref_position_a"] == "aligned (trained)"
+    expected = (
+        "beside (right of target)" if purpose == "identity_v2" and refs else "aligned (trained)"
+    )
+    assert node["ref_position"] == expected
+    assert node["target_latent"] == next(
+        n["inputs"]["latent_image"]
+        for n in graph.values()
+        if n["class_type"] == "SamplerCustomAdvanced"
+    )
+    assert work.models == WorkflowInput.from_dict(work.to_dict()).models
+
+
+def test_v2_rejects_old_nodes_before_submission():
+    models, style = v2_models_and_style()
+    models.node_inputs.nodes["Krea2EditModelPatch"] = {}
+    with pytest.raises(RuntimeError, match=r"2\.0 or newer"):
+        request(models, style)
+
+
+def test_v2_refuses_two_functional_adapters():
+    models, style = v2_models_and_style()
+    general = "krea_v2/krea2_general_edit_v2_r128.safetensors"
+    models.loras.append(general)
+    style.loras = [
+        {"name": models.loras[-2], "strength": 1.0},
+        {"name": general, "strength": 1.0},
+    ]
+    with pytest.raises(RuntimeError, match="exactly one"):
+        request(models, style)
+
+
+def test_v2_respects_manual_rank_and_placement():
+    models, style = v2_models_and_style("general_v2")
+    full = "krea_v2/krea2_general_edit_v2.safetensors"
+    models.loras.append(full)
+    style.loras = [{"name": full, "strength": 0.8}]
+    style.krea2_ref_position = "beside (right of target)"
+    work = request(models, style)
+    assert work.models is not None and work.models.loras == [LoraInput(full, 0.8)]
+    graph = create(work, models).root
+    node = next(n["inputs"] for n in graph.values() if n["class_type"] == "Krea2EditModelPatch")
+    assert node["ref_position"] == "beside (right of target)"
+
+
+def test_legacy_preset_does_not_silently_switch_to_v2():
+    models, style = v2_models_and_style()
+    style.krea2_reference_mode = "identity"
+    work = request(models, style)
+    assert work.models is not None and work.models.loras == [LoraInput(identity_name, 1.0)]
+    graph = create(work, models).root
+    node = next(n["inputs"] for n in graph.values() if n["class_type"] == "Krea2EditModelPatch")
+    assert "ref_position" not in node
+
+
+def test_v2_never_falls_back_to_legacy_adapter():
+    models, style = v2_models_and_style("general_v2")
+    models.loras = [identity_name]
+    with pytest.raises(RuntimeError, match="exactly one"):
+        request(models, style)
+
+
+def test_v2_rejects_wrong_adapter_and_invalid_placement():
+    models, style = v2_models_and_style("general_v2")
+    style.loras = [{"name": identity_name, "strength": 1.0}]
+    with pytest.raises(RuntimeError, match="matching"):
+        request(models, style)
+    style.loras = []
+    style.krea2_ref_position = "invalid"
+    with pytest.raises(RuntimeError, match="placement"):
+        request(models, style)

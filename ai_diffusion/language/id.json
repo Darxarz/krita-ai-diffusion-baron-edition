@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "Ukuran kanvas berubah selama pemisahan. Jalankan kembali.",
     "Select a paint layer or group to process": "Pilih lapisan lukis atau grup untuk diproses",
     "Unsupported document color mode": "Mode warna dokumen tidak didukung",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit memerlukan tepat satu LoRA Krea 2 Identity Edit yang aktif",
     "Unknown Krea 2 reference purpose": "Tujuan referensi Krea 2 tidak dikenal",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit saat ini hanya mendukung LoRA global; hapus LoRA regional",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "Pilih Krea 2 Identity Edit atau Style Reference LoRA untuk workflow ini",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "Selisih seed noise tambahan. Biarkan 0 kecuali untuk menyamai preset A1111.",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "Bobot A1111, BREAK, AND dan jadwal prompt. Memerlukan node smZ; hanya SD 1.5 dan SDXL.",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "Noise GPU seperti di situs. Memerlukan sintaks A1111 dan smZ Settings.",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: Penempatan referensi",
+    "Aligned with canvas": "Sejajar dengan kanvas",
+    "Beside canvas (restaging)": "Di samping kanvas (komposisi baru)",
+    "Bag of features (experimental)": "Kumpulan fitur (eksperimental)",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit memerlukan tepat satu LoRA Identity atau General Edit yang aktif",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "Pilih LoRA Krea 2 Edit yang sesuai dengan tujuan referensi",
+    "Unknown Krea 2 reference placement": "Penempatan referensi Krea 2 tidak dikenal",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 memerlukan ComfyUI-Krea2Edit 2.0 atau lebih baru; perbarui node dan mulai ulang ComfyUI"
   }
 }

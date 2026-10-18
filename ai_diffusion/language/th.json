@@ -681,7 +681,6 @@
     "The canvas size changed during separation. Run it again.": "ขนาดผืนผ้าใบเปลี่ยนระหว่างแยก กรุณาเรียกใช้อีกครั้ง",
     "Select a paint layer or group to process": "เลือกเลเยอร์วาดภาพหรือกลุ่มที่จะประมวลผล",
     "Unsupported document color mode": "ไม่รองรับโหมดสีของเอกสาร",
-    "Krea 2 Edit requires exactly one enabled Krea 2 Identity Edit LoRA": "Krea 2 Edit ต้องเปิดใช้งาน Krea 2 Identity Edit LoRA เพียงหนึ่งรายการ",
     "Unknown Krea 2 reference purpose": "ไม่รู้จักจุดประสงค์ของภาพอ้างอิง Krea 2",
     "Krea 2 Edit currently supports global LoRAs; remove regional LoRAs": "Krea 2 Edit รองรับเฉพาะ LoRA ทั้งภาพในขณะนี้ กรุณาลบ LoRA รายพื้นที่",
     "Choose either Krea 2 Identity Edit or Style Reference LoRA for this workflow": "เลือก Krea 2 Identity Edit หรือ Style Reference LoRA สำหรับเวิร์กโฟลว์นี้",
@@ -707,6 +706,14 @@
     "Extra noise seed delta. Keep 0 unless matching an A1111 preset.": "ค่าชดเชยซีดนอยส์เพิ่มเติม ใช้ 0 เว้นแต่ต้องการทำซ้ำค่าที่ตั้งไว้ของ A1111",
     "A1111 weights, BREAK, AND and prompt schedules. Requires smZ nodes on the server; SD 1.5 and SDXL only.": "น้ำหนัก A1111, BREAK, AND และการกำหนดช่วงพรอมป์ต์ ต้องมีโหนด smZ รองรับเฉพาะ SD 1.5 และ SDXL",
     "Use the website's A1111 GPU noise settings. Requires A1111 prompt syntax and smZ Settings.": "นอยส์ GPU แบบเดียวกับเว็บไซต์ ต้องใช้ไวยากรณ์ A1111 และ smZ Settings",
-    "ENSD": "ENSD"
+    "ENSD": "ENSD",
+    "Krea 2: Reference placement": "Krea 2: การจัดวางภาพอ้างอิง",
+    "Aligned with canvas": "จัดแนวกับผืนผ้าใบ",
+    "Beside canvas (restaging)": "ข้างผืนผ้าใบ (จัดองค์ประกอบใหม่)",
+    "Bag of features (experimental)": "ชุดคุณลักษณะ (ทดลอง)",
+    "Krea 2 Edit requires exactly one enabled Identity or General Edit LoRA": "Krea 2 Edit ต้องเปิดใช้ LoRA Identity หรือ General Edit เพียงหนึ่งรายการ",
+    "Choose a Krea 2 Edit LoRA matching the selected reference purpose": "เลือก LoRA Krea 2 Edit ที่ตรงกับวัตถุประสงค์ของภาพอ้างอิง",
+    "Unknown Krea 2 reference placement": "ไม่รู้จักการจัดวางภาพอ้างอิง Krea 2",
+    "Krea 2 Edit V2 requires ComfyUI-Krea2Edit 2.0 or newer; update the nodes and restart ComfyUI": "Krea 2 Edit V2 ต้องใช้ ComfyUI-Krea2Edit 2.0 ขึ้นไป โปรดอัปเดตโหนดและเริ่ม ComfyUI ใหม่"
   }
 }
