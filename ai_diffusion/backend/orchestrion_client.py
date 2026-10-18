@@ -106,6 +106,8 @@ def lora_compatible(family: str, arch: Arch) -> bool | None:
     value = family.lower().replace(" ", "").replace("-", "").replace("_", "")
     if "krea" in value:
         return arch is Arch.krea2
+    if "moss" in value:
+        return arch is Arch.moss
     if "qwen21" in value or "qwenimage2.1" in value:
         return arch is Arch.qwen2
     if "qwen" in value:
