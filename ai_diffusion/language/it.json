@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "L'accesso al sito è scaduto. Accedi di nuovo.",
     "new": "nuova",
     "opened on {device}": "aperta su {device}",
-    "returned, version {version}": "restituita, versione {version}"
+    "returned, version {version}": "restituita, versione {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "Le regioni di FLUX 3 Klein non supportano i LoRA, usa LoRA globali",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "Le regioni di MOSS-Image non supportano i LoRA, usa LoRA globali",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein supporta fino a 10 immagini di riferimento, tela inclusa"
   }
 }

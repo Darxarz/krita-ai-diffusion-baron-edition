@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "웹사이트 로그인이 만료되었습니다. 다시 로그인하세요.",
     "new": "새 항목",
     "opened on {device}": "{device}에서 열림",
-    "returned, version {version}": "돌려보냄, 버전 {version}"
+    "returned, version {version}": "돌려보냄, 버전 {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "FLUX 3 Klein 영역은 LoRA를 지원하지 않습니다. 전역 LoRA를 사용하세요",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "MOSS-Image 영역은 LoRA를 지원하지 않습니다. 전역 LoRA를 사용하세요",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein은 캔버스를 포함해 최대 10개의 참조 이미지를 지원합니다"
   }
 }

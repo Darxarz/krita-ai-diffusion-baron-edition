@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "การเข้าสู่ระบบเว็บไซต์หมดอายุแล้ว โปรดเข้าสู่ระบบอีกครั้ง",
     "new": "ใหม่",
     "opened on {device}": "เปิดอยู่บน {device}",
-    "returned, version {version}": "ส่งกลับแล้ว เวอร์ชัน {version}"
+    "returned, version {version}": "ส่งกลับแล้ว เวอร์ชัน {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "ภูมิภาคของ FLUX 3 Klein ไม่รองรับ LoRA โปรดใช้ LoRA แบบส่วนกลาง",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "ภูมิภาคของ MOSS-Image ไม่รองรับ LoRA โปรดใช้ LoRA แบบส่วนกลาง",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein รองรับรูปภาพอ้างอิงสูงสุด 10 รูป รวมถึงผืนผ้าใบ"
   }
 }

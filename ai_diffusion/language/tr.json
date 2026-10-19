@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "Web sitesi oturumunuzun süresi doldu. Yeniden giriş yapın.",
     "new": "yeni",
     "opened on {device}": "{device} üzerinde açık",
-    "returned, version {version}": "geri gönderildi, sürüm {version}"
+    "returned, version {version}": "geri gönderildi, sürüm {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "FLUX 3 Klein bölgeleri LoRA desteklemez, genel LoRA kullanın",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "MOSS-Image bölgeleri LoRA desteklemez, genel LoRA kullanın",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein, tuval dahil en fazla 10 referans görüntüyü destekler"
   }
 }

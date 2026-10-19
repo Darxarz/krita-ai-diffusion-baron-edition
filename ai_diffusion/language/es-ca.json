@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "La sessió al lloc web ha caducat. Torneu a iniciar la sessió.",
     "new": "nova",
     "opened on {device}": "oberta a {device}",
-    "returned, version {version}": "retornada, versió {version}"
+    "returned, version {version}": "retornada, versió {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "Les regions de FLUX 3 Klein no admeten LoRA; feu servir LoRA globals",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "Les regions de MOSS-Image no admeten LoRA; feu servir LoRA globals",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein admet fins a 10 imatges de referència, inclòs el llenç"
   }
 }

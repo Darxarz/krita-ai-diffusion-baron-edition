@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "Sesi masuk situs web Anda telah berakhir. Masuk lagi.",
     "new": "baru",
     "opened on {device}": "dibuka di {device}",
-    "returned, version {version}": "dikembalikan, versi {version}"
+    "returned, version {version}": "dikembalikan, versi {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "Region FLUX 3 Klein tidak mendukung LoRA, gunakan LoRA global",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "Region MOSS-Image tidak mendukung LoRA, gunakan LoRA global",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein mendukung hingga 10 gambar referensi, termasuk kanvas"
   }
 }

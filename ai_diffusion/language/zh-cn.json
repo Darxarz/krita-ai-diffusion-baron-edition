@@ -738,6 +738,9 @@
     "Your website login expired. Sign in again.": "网站登录已过期。请重新登录。",
     "new": "新",
     "opened on {device}": "已在 {device} 上打开",
-    "returned, version {version}": "已返回，版本 {version}"
+    "returned, version {version}": "已返回，版本 {version}",
+    "FLUX 3 Klein regions do not support LoRAs, use global LoRAs": "FLUX 3 Klein 区域不支持 LoRA，请使用全局 LoRA",
+    "MOSS-Image regions do not support LoRAs, use global LoRAs": "MOSS-Image 区域不支持 LoRA，请使用全局 LoRA",
+    "FLUX 3 Klein supports up to 10 reference images, including the canvas": "FLUX 3 Klein 最多支持 10 张参考图像（包括画布）"
   }
 }
