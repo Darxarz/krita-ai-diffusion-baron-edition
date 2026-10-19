@@ -108,6 +108,8 @@ def lora_compatible(family: str, arch: Arch) -> bool | None:
         return arch is Arch.krea2
     if "moss" in value:
         return arch is Arch.moss
+    if "flux3" in value:
+        return arch is Arch.flux3
     if "qwen21" in value or "qwenimage2.1" in value:
         return arch is Arch.qwen2
     if "qwen" in value:
