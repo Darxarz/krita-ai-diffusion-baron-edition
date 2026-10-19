@@ -35,6 +35,8 @@ def test_new_workspaces_have_translations_and_preserve_parameters(language_file)
     keys = set()
     for path in [
         "backend/orchestrion_client.py",
+        "backend/orchestrion_inbox.py",
+        "model/inbox.py",
         "backend/background.py",
         "model/background.py",
         "ui/background.py",

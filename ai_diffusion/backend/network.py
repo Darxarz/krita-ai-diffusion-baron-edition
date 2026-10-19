@@ -117,21 +117,31 @@ class RequestManager:
         self,
         method,
         url: str,
-        data: dict | QByteArray | None = None,
+        data: dict | QByteArray | bytes | None = None,
         timeout: float | None = None,
         bearer: str | None = None,
+        content_type: str | None = None,
+        headers: Headers | None = None,
     ):
         self._cleanup()
 
         request = self._prepare_request(url, timeout, bearer)
+        for key, value in headers or []:
+            request.setRawHeader(key.encode("utf-8"), value.encode("utf-8"))
 
-        assert method in ["GET", "POST", "PUT"]
+        assert method in ["GET", "POST", "PUT", "DELETE"]
         if method == "POST":
-            data = data or {}
-            data_bytes = QByteArray(json.dumps(data).encode("utf-8"))
-            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+            if isinstance(data, (bytes, QByteArray)):  # raw body, e.g. an image
+                data_bytes = QByteArray(data)
+                content_type = content_type or "application/octet-stream"
+            else:
+                data_bytes = QByteArray(json.dumps(data or {}).encode("utf-8"))
+                content_type = content_type or "application/json"
+            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, content_type)
             request.setHeader(QNetworkRequest.KnownHeaders.ContentLengthHeader, data_bytes.size())
             reply = self._net.post(request, data_bytes)
+        elif method == "DELETE":
+            reply = self._net.deleteResource(request)
         elif method == "PUT":
             if isinstance(data, bytes):
                 data = QByteArray(data)

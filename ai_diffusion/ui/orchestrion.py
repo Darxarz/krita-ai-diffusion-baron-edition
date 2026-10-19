@@ -13,7 +13,10 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
+    QMessageBox,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -31,14 +34,18 @@ from ..backend.orchestrion_client import (
     quote_text,
     service_url,
 )
+from ..backend.orchestrion_inbox import InboxError, InboxItem
+from ..image import ImageFileFormat
 from ..localization import translate as _
 from ..model.connection import ConnectionState
+from ..model.inbox import parse_document_info
 from ..model.jobs import JobKind
 from ..model.root import root
 from ..orchestrion import website_url
 from ..settings import settings
 from ..style import Styles
 from ..text import append_lora
+from ..util import ensure
 from . import theme
 
 _panel_style = """
@@ -399,6 +406,17 @@ class ModelGallery(QDialog):
         super().done(a0)
 
 
+def _status(item: InboxItem):
+    match item.status:
+        case "opened":
+            device = (item.opened_by or {}).get("deviceName") or "?"
+            return _("opened on {device}", device=device)
+        case "returned":
+            return _("returned, version {version}", version=item.version)
+        case _:
+            return _("new")
+
+
 class OrchestrionBar(QWidget):
     def __init__(self, kind: JobKind, parent=None):
         super().__init__(parent)
@@ -416,15 +434,127 @@ class OrchestrionBar(QWidget):
         self.gallery = QPushButton(_("Models"), self)
         self.gallery.clicked.connect(self._open_gallery)
         layout.addWidget(self.gallery)
+        self.inbox_button = QToolButton(self)
+        self.inbox_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.inbox_menu = QMenu(self.inbox_button)
+        self.inbox_menu.aboutToShow.connect(self._fill_inbox_menu)
+        self.inbox_button.setMenu(self.inbox_menu)
+        layout.addWidget(self.inbox_button)
+        self.return_button = QPushButton(_("Return to website"), self)
+        self.return_button.setToolTip(
+            _("Sends the flattened image back to the website item it was opened from")
+        )
+        self.return_button.clicked.connect(self._return_to_website)
+        layout.addWidget(self.return_button)
+        self._inbox_task: asyncio.Task | None = None
         self._timer = QTimer(self)
         self._timer.setInterval(1500)
         self._timer.timeout.connect(self._update)
         self._timer.start()
         root.connection.state_changed.connect(self._visibility)
+        root.connection.inbox.changed.connect(self._update_inbox)
+        if kind is JobKind.diffusion:  # report automatic opening problems once
+            root.connection.inbox.failed.connect(self._schedule_inbox_failed)
         self._visibility()
 
     def _open_gallery(self):
         ModelGallery(self).exec()
+
+    def _update_inbox(self):
+        inbox = root.connection.inbox
+        self.inbox_button.setVisible(inbox.enabled)
+        count = inbox.unopened_count
+        self.inbox_button.setText(_("Inbox ({count})", count=count) if count else _("Inbox"))
+        self.inbox_button.setToolTip(inbox.error)
+        busy = self._inbox_task is not None and not self._inbox_task.done()
+        has_document = False
+        if inbox.enabled:
+            from ..document import active_inbox_document  # requires Krita
+
+            has_document = active_inbox_document()[0] is not None
+        self.return_button.setVisible(inbox.enabled and has_document)
+        self.return_button.setEnabled(not busy)
+
+    def _fill_inbox_menu(self):
+        self.inbox_menu.clear()
+        items = root.connection.inbox.available
+        if not items:
+            empty = ensure(
+                self.inbox_menu.addAction(
+                    _("Pictures sent from the website with “Send to Krita” appear here")
+                )
+            )
+            empty.setEnabled(False)
+        for item in items:
+            text = f"{item.title or item.filename} · {_status(item)}"
+            action = ensure(self.inbox_menu.addAction(text))
+            action.triggered.connect(lambda _checked=False, id=item.id: self._open_item(id))
+
+    def _open_item(self, item_id: str, force=False):
+        if self._inbox_task is None or self._inbox_task.done():
+            self._inbox_task = eventloop.run(self._open_item_async(item_id, force))
+
+    async def _open_item_async(self, item_id: str, force: bool):
+        # Dialogs are shown after the coroutine step, never from inside the event loop task
+        try:
+            await root.connection.inbox.open(item_id, force=force)
+        except InboxError as e:
+            message = e.message
+            if e.code == "already_opened" and not force:
+                QTimer.singleShot(0, lambda: self._confirm_open(item_id, message))
+            else:
+                self._schedule_inbox_failed(message)
+        except Exception as e:
+            self._schedule_inbox_failed(str(e))
+
+    def _confirm_open(self, item_id: str, message: str):
+        text = message + "\n\n" + _("Open it here anyway?")
+        if QMessageBox.question(self, "Orchestrion", text) == QMessageBox.StandardButton.Yes:
+            self._open_item(item_id, force=True)
+
+    def _schedule_inbox_failed(self, message: str):
+        QTimer.singleShot(0, lambda: self._inbox_failed(message))
+
+    def _inbox_failed(self, message: str):
+        text = _("Could not open the picture from the website: {error}", error=message)
+        self._show_message(text, warning=True)
+
+    def _show_message(self, text: str, warning=False):
+        if warning:
+            QMessageBox.warning(self, "Orchestrion", text)
+        else:
+            QMessageBox.information(self, "Orchestrion", text)
+
+    def _return_to_website(self):
+        from ..document import active_inbox_document, flatten_document  # requires Krita
+
+        doc, data = active_inbox_document()
+        info = parse_document_info(data)
+        if doc is None or info is None or (self._inbox_task and not self._inbox_task.done()):
+            return
+        image = flatten_document(doc)
+        png = image.to_bytes(ImageFileFormat.png).data()
+        self.return_button.setText(_("Returning…"))
+        self.return_button.setEnabled(False)
+        self._inbox_task = eventloop.run(self._return_async(info, png, image.width, image.height))
+
+    async def _return_async(self, info: dict, png: bytes, width: int, height: int):
+        try:
+            result = await root.connection.inbox.return_picture(info, png, width, height)
+            text = _("Returned to the website as version {version}.", version=result["version"])
+            if result.get("placedInto"):
+                text += " " + _("Placed into the comic panel.")
+            elif result.get("placeError"):
+                text += " " + _(
+                    "The comic panel was not found, the picture was saved to your gallery."
+                )
+            QTimer.singleShot(0, lambda: self._show_message(text))
+        except Exception as e:
+            message = str(e)
+            QTimer.singleShot(0, lambda: self._show_message(message, warning=True))
+        finally:
+            self.return_button.setText(_("Return to website"))
+            self._update_inbox()
 
     def _visibility(self):
         self.setVisible(isinstance(root.connection.client_if_connected, OrchestrionClient))
@@ -433,6 +563,8 @@ class OrchestrionBar(QWidget):
         self._update()
 
     def _update(self):
+        if self.isVisible():
+            self._update_inbox()
         if not self.isVisible() or (self._task and not self._task.done()):
             return
         client = root.connection.client_if_connected

@@ -191,6 +191,10 @@ class Settings(QObject):
     _orchestrion_url = Setting("Orchestrion", website_url)
     orchestrion_token: str
     _orchestrion_token = Setting(_("Orchestrion device credential"), "")
+    orchestrion_device_id: str
+    _orchestrion_device_id = Setting("Orchestrion inbox device id", "")
+    orchestrion_inbox_auto_open: bool
+    _orchestrion_inbox_auto_open = Setting("Open pictures sent from the website", True)
 
     server_path: str
     _server_path = Setting(
