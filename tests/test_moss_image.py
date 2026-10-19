@@ -31,6 +31,7 @@ from ai_diffusion.backend.resources import Arch, ResourceKind, UpscalerName, res
 from ai_diffusion.backend.workflow import (
     ImageReshape,
     LayoutBox,
+    _with_position,
     create,
     moss_layout_items,
     prepare,
@@ -313,14 +314,18 @@ def test_layout_box_rounds_outwards():
 
 def test_layout_items_labels_and_quoted_text():
     bbox = [-10, -20, 30, 40]
-    assert moss_layout_items("a red apple", bbox) == [
-        {"label": "object", "caption": "a red apple", "bbox": bbox}
+    # Like the website: "character" unless the prompt starts with "object:" or "text:"
+    assert moss_layout_items("a tall satyr", bbox) == [
+        {"label": "character", "caption": "a tall satyr", "bbox": bbox}
     ]
     assert moss_layout_items("Character: a knight", bbox) == [
         {"label": "character", "caption": "a knight", "bbox": bbox}
     ]
+    assert moss_layout_items("object: a red apple", bbox) == [
+        {"label": "object", "caption": "a red apple", "bbox": bbox}
+    ]
     sign = 'a neon sign "Open 24/7" and «BAR»'
-    assert moss_layout_items(sign, bbox) == [
+    assert moss_layout_items(f"OBJECT: {sign}", bbox) == [
         {"label": "object", "caption": sign, "bbox": bbox},
         {"label": "text", "caption": sign, "text": "Open 24/7", "bbox": bbox},
         {"label": "text", "caption": sign, "text": "BAR", "bbox": bbox},
@@ -331,8 +336,8 @@ def test_layout_items_labels_and_quoted_text():
 
 
 global_prompt = "a fantasy street at dusk"
-character_prompt = "character: a red-haired girl in a green cloak"
-sign_prompt = 'a wooden tavern sign that says "TAVERN"'
+character_prompt = "a red-haired girl in a green cloak"
+sign_prompt = 'object: a wooden tavern sign that says "TAVERN"'
 character_rect = Bounds(40, 100, 420, 800)
 sign_rect = Bounds(560, 50, 400, 300)
 
@@ -359,11 +364,11 @@ def layout_prompts(work: WorkflowInput):
 
 
 def expected_items(char_box: list[int], sign_box: list[int]):
-    caption = character_prompt.removeprefix("character: ")
+    sign = sign_prompt.removeprefix("object: ")
     return [
-        {"label": "character", "caption": caption, "bbox": char_box},
-        {"label": "object", "caption": sign_prompt, "bbox": sign_box},
-        {"label": "text", "caption": sign_prompt, "text": "TAVERN", "bbox": sign_box},
+        {"label": "character", "caption": character_prompt, "bbox": char_box},
+        {"label": "object", "caption": sign, "bbox": sign_box},
+        {"label": "text", "caption": sign, "text": "TAVERN", "bbox": sign_box},
     ]
 
 
@@ -496,3 +501,69 @@ def test_moss_regional_lora_is_rejected():
     )
     with pytest.raises(RuntimeError, match="LoRA"):
         create(work, client.models)
+
+
+def test_layout_position_replaces_side_words():
+    assert _with_position("a satyr on the left, holding a lute", "in the center") == (
+        "a satyr, holding a lute, in the center"
+    )
+    assert _with_position("an elf to the far right of the frame", "on the left of the frame") == (
+        "an elf, on the left of the frame"
+    )
+    # Body parts keep their side
+    assert _with_position("right: a mage raising his left hand", "in the center") == (
+        "a mage raising his left hand, in the center"
+    )
+    assert _with_position("слева девушка", "in the center") == ("девушка, in the center")
+
+
+def test_moss_two_characters_get_positions():
+    extent = Extent(1536, 1024)
+    full = Bounds(0, 0, *extent)
+    sign = 'a sign "BARON\'S BAKERY"'
+    regions = [
+        RegionInput(rect_mask(extent, full), full, global_prompt),
+        RegionInput(rect_mask(extent, Bounds(1000, 100, 400, 900)), full, "a satyr on the left"),
+        RegionInput(rect_mask(extent, Bounds(60, 120, 400, 880)), full, "a nymph to the right"),
+        RegionInput(rect_mask(extent, Bounds(600, 40, 340, 200)), full, sign),
+    ]
+    work = WorkflowInput(
+        WorkflowKind.generate,
+        models=CheckpointInput(model_name, Arch.moss),
+        images=ImageInput.from_extent(extent),
+        conditioning=ConditioningInput(global_prompt, regions=regions),
+        sampling=SamplingInput("euler", "sgm_uniform", 3.0, 30),
+    )
+    layouts, _ = layout_prompts(work)
+    items = [(i["label"], i["caption"], i.get("text")) for i in layouts[0]["items"]]
+    # Without a prefix the sign is a character too, like on the website
+    assert items == [
+        ("character", "a satyr, on the right of the frame", None),
+        ("character", "a nymph, on the left of the frame", None),
+        ("character", f"{sign}, in the center", None),
+        ("text", sign, "BARON'S BAKERY"),
+    ]
+
+
+def test_moss_single_character_keeps_caption():
+    extent = Extent(1024, 1024)
+    full = Bounds(0, 0, *extent)
+    regions = [
+        RegionInput(rect_mask(extent, full), full, global_prompt),
+        RegionInput(rect_mask(extent, Bounds(40, 100, 420, 800)), full, "a satyr on the left"),
+        RegionInput(rect_mask(extent, Bounds(600, 40, 340, 200)), full, 'object: a sign "OPEN"'),
+    ]
+    work = WorkflowInput(
+        WorkflowKind.generate,
+        models=CheckpointInput(model_name, Arch.moss),
+        images=ImageInput.from_extent(extent),
+        conditioning=ConditioningInput(global_prompt, regions=regions),
+        sampling=SamplingInput("euler", "sgm_uniform", 3.0, 30),
+    )
+    layouts, _ = layout_prompts(work)
+    captions = [(i["label"], i["caption"]) for i in layouts[0]["items"]]
+    assert captions == [
+        ("character", "a satyr on the left"),
+        ("object", 'a sign "OPEN"'),
+        ("text", 'a sign "OPEN"'),
+    ]
