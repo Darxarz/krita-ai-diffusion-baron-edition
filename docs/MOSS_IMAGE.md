@@ -24,7 +24,20 @@ The Qwen Image 2.1 prompt enhancer (`qwen3.5_9b_qwen_image_2.1_pe_*`) shares the
 
 Write prompts as sentences, not tags. Quoted text is rendered, e.g. `a sign that says "OPEN"`.
 
+## Regions
+
+MOSS does not use attention-couple masks. With two or more regions the positive prompt becomes a layout JSON string, built like ComfyUI's `MOSSImageLayoutPrompt`:
+
+```json
+{"summary":{"caption":"a fantasy street at dusk"},"items":[{"label":"character","caption":"a red-haired girl in a green cloak","bbox":[-412,-472,388,-52]},{"label":"object","caption":"a wooden tavern sign that says \"TAVERN\"","bbox":[-462,48,-162,448]},{"label":"text","caption":"a wooden tavern sign that says \"TAVERN\"","text":"TAVERN","bbox":[-462,48,-162,448]}],"bbox_coord_space":"abs_centralized","bbox_format":"yxyx"}
+```
+
+- `summary.caption` is the global prompt (with the style prompt merged in).
+- One item per region, `bbox` is the bounding box of the region mask (pixels at least half covered) as `[y0, x0, y1, x1]` in pixels of the image which is actually sampled, origin at its centre; inner edges are floored, outer edges ceiled. For inpaint, the high-resolution refinement and upscale tiles, the box is cropped and scaled like the mask.
+- Label: `object` by default; start the region prompt with `character:`, `object:` or `text:` to choose. Quoted text (`"…"`, `“…”`, `«…»`) adds a `text` item with the exact text and the same box.
+- The global prompt Krita appends to region prompts is removed from the captions; the background region is left out.
+- The negative prompt stays plain text. Regional LoRAs are rejected, use global LoRAs. Prompts are not translated into the layout, the Qwen3.5 encoder reads most languages directly.
+
 ## Not supported yet
 
 - ControlNet, IP-Adapter and instruction edit: the model has none.
-- Regions: MOSS expects a layout JSON prompt instead of attention masks; regional prompts stay disabled until that conversion is implemented.
