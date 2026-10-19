@@ -333,6 +333,17 @@ def test_layout_items_labels_and_quoted_text():
     assert moss_layout_items("text: EXIT", bbox) == [
         {"label": "text", "caption": "EXIT", "text": "EXIT", "bbox": bbox}
     ]
+    # Quoted text without a prefix: the region is an object, explicit prefixes win
+    assert moss_layout_items(sign, bbox) == [
+        {"label": "object", "caption": sign, "bbox": bbox},
+        {"label": "text", "caption": sign, "text": "Open 24/7", "bbox": bbox},
+        {"label": "text", "caption": sign, "text": "BAR", "bbox": bbox},
+    ]
+    girl = 'a girl in a shirt that says "HELLO"'
+    assert moss_layout_items(f"character: {girl}", bbox) == [
+        {"label": "character", "caption": girl, "bbox": bbox},
+        {"label": "text", "caption": girl, "text": "HELLO", "bbox": bbox},
+    ]
 
 
 global_prompt = "a fantasy street at dusk"
@@ -536,11 +547,11 @@ def test_moss_two_characters_get_positions():
     )
     layouts, _ = layout_prompts(work)
     items = [(i["label"], i["caption"], i.get("text")) for i in layouts[0]["items"]]
-    # Without a prefix the sign is a character too, like on the website
+    # Quoted text without a prefix makes the sign an object, which gets no position
     assert items == [
         ("character", "a satyr, on the right of the frame", None),
         ("character", "a nymph, on the left of the frame", None),
-        ("character", f"{sign}, in the center", None),
+        ("object", sign, None),
         ("text", sign, "BARON'S BAKERY"),
     ]
 
