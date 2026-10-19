@@ -20,10 +20,19 @@ from ..backend.cloud_client import CloudClient
 from ..backend.comfy_client import ComfyClient
 from ..backend.network import NetworkError
 from ..backend.orchestrion_client import OrchestrionAPI, OrchestrionClient, protect_token
+from ..backend.orchestrion_inbox import InboxAPI
+from ..image import Image
 from ..localization import Localization
 from ..localization import translate as _
 from ..settings import PerformancePreset, ServerMode, Settings, settings
+from .inbox import Inbox
 from .properties import ObservableProperties, Property
+
+
+def _open_inbox_document(image: Image, name: str, info):
+    from ..document import open_inbox_document  # requires Krita
+
+    return open_inbox_document(image, name, info)
 
 
 class ConnectionState(Enum):
@@ -66,6 +75,7 @@ class Connection(QObject, ObservableProperties):
         self._catalog_timer.setInterval(60000)
         self._catalog_timer.timeout.connect(self._refresh_catalog)
         self._catalog_timer.start()
+        self.inbox = Inbox(_open_inbox_document)
         self.sign_in_code = ""
         self.error_kind = ""
         self.missing_resources: MissingResources | None = None
@@ -159,6 +169,8 @@ class Connection(QObject, ObservableProperties):
 
             self._client = client
             self._task = eventloop._loop.create_task(self._handle_messages(client))
+            if isinstance(client, OrchestrionClient):
+                self.inbox.start(InboxAPI(client.api.url, client.api.token))
             self.state = ConnectionState.connected
             self.models_changed.emit()
         except NetworkError as e:
@@ -211,6 +223,7 @@ class Connection(QObject, ObservableProperties):
         eventloop.run(self._connect(client))
 
     async def disconnect(self):  # type: ignore (hides QObject.disconnect)
+        self.inbox.stop()
         if self._catalog_task is not None:
             self._catalog_task.cancel()
             await asyncio.gather(self._catalog_task, return_exceptions=True)

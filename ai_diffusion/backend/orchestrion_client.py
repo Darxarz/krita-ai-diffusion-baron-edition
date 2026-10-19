@@ -132,6 +132,7 @@ def lora_compatible(family: str, arch: Arch) -> bool | None:
 class OrchestrionAPI:
     def __init__(self, url: str, token=""):
         self.url = service_url(url)
+        self.token = token
         self.requests = RequestManager(same_origin_only=True)
         self.requests.set_auth(token)
 

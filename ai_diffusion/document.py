@@ -382,3 +382,40 @@ class PoseLayers:
 
 
 _pose_layers = PoseLayers()
+
+
+inbox_annotation = "ai_diffusion/orchestrion_inbox"
+
+
+def open_inbox_document(image: Image, name: str, info: QByteArray):
+    """Opens a picture received from the website as a new document in the active window."""
+    app = Krita.instance()
+    image.to_krita_format()
+    doc = app.createDocument(image.width, image.height, name, "RGBA", "U8", "", 300.0)
+    nodes = acquire_elements(doc.rootNode().childNodes())
+    layer = nodes[0] if nodes else doc.createNode(name, "paintlayer")
+    if not nodes:
+        doc.rootNode().addChildNode(layer, None)
+    layer.setName(name)
+    layer.setPixelData(image.data, 0, 0, image.width, image.height)
+    doc.setAnnotation(inbox_annotation, "Orchestrion inbox item", info)
+    doc.refreshProjection()
+    if window := app.activeWindow():
+        window.addView(doc)
+    return doc
+
+
+def active_inbox_document():
+    """Returns the active Krita document and its inbox annotation, if it came from the website."""
+    if doc := Krita.instance().activeDocument():
+        info = doc.annotation(inbox_annotation)
+        if info and info.size() > 0:
+            return doc, info
+    return None, None
+
+
+def flatten_document(doc: krita.Document):
+    doc.refreshProjection()
+    doc.waitForDone()
+    extent = Extent(doc.width(), doc.height())
+    return Image.from_packed_bytes(doc.pixelData(0, 0, extent.width, extent.height), extent)
