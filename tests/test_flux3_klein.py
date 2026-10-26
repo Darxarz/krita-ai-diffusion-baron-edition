@@ -21,11 +21,18 @@ from ai_diffusion.backend.api import (
 from ai_diffusion.backend.comfy_client import (
     ComfyClient,
     _find_text_encoder_models,
+    _find_upscalers,
     _find_vae_models,
 )
 from ai_diffusion.backend.comfy_workflow import ComfyObjectInfo
 from ai_diffusion.backend.orchestrion_client import lora_compatible
-from ai_diffusion.backend.resources import Arch, ControlMode, ResourceKind, resource_id
+from ai_diffusion.backend.resources import (
+    Arch,
+    ControlMode,
+    ResourceKind,
+    UpscalerName,
+    resource_id,
+)
 from ai_diffusion.backend.workflow import LayoutBox, build_instructions, create, prepare
 from ai_diffusion.files import FileCollection, FileFormat, FileLibrary
 from ai_diffusion.image import Bounds, Extent, Image, Mask
@@ -61,6 +68,7 @@ def flux3_client(clip_types=("flux2", "krea2", "flux3")):
     client._refresh_models(loader_nodes(clip_types), {}, metadata)
     client.models.resources.update(_find_text_encoder_models([encoder_name]))
     client.models.resources.update(_find_vae_models([vae_name]))
+    client.models.resources.update(_find_upscalers([u.value for u in UpscalerName]))
     return client
 
 
@@ -177,20 +185,26 @@ def test_flux3_style_and_preset():
     assert (style.sampler_steps, style.cfg_scale) == (16, 1.0)
 
 
-def edit_work(control: list[ControlInput], edit_reference=True, prompt="make it night"):
+def edit_work(
+    control: list[ControlInput],
+    edit_reference=True,
+    prompt="make it night",
+    canvas: Extent | None = None,
+    strength=1.0,
+):
     client = flux3_client()
     cond = ConditioningInput(prompt, control=control, edit_reference=edit_reference)
     cond.positive = build_instructions(cond, Arch.flux3, None)  # done by prepare_prompts
     work = prepare(
         WorkflowKind.refine,
-        Image.create(Extent(1024, 768)),
+        Image.create(canvas or Extent(1024, 768)),
         cond,
         flux3_style(),
         1234,
         client.models,
         FileLibrary(FileCollection(), FileCollection()),
         PerformanceSettings(batch_size=1),
-        strength=1.0,
+        strength=strength,
     )
     return work, client
 
@@ -202,18 +216,159 @@ def test_flux3_edit_uses_reference_multi_latent():
     assert work.conditioning.positive.startswith("Apply the style from <ref_image_1>.")
     graph = create(work, client.models).root
     nodes = graph_nodes(graph)
-    refs = [n["inputs"] for n in nodes if n["class_type"] == "ReferenceMultiLatent"]
-    assert len(refs) == 1
-    ref = refs[0]
-    assert ref["resolution"] == "resize"
-    assert ref["resolution.megapixels"] == pytest.approx(1.0)
-    assert sorted(k for k in ref if k.startswith("images.")) == ["images.image0", "images.image1"]
-    assert node_by_id(graph, ref["vae"])["class_type"] == "VAELoader"
+    canvas_ref, extra_ref = [
+        n["inputs"] for n in nodes if n["class_type"] == "ReferenceMultiLatent"
+    ]
+    # The canvas (<ref_image_0>) keeps the sampled size, so output and reference match
+    assert canvas_ref["resolution"] == "keep resolution"
+    assert "resolution.megapixels" not in canvas_ref
+    assert [k for k in canvas_ref if k.startswith("images.")] == ["images.image0"]
+    sampled = node_by_id(graph, by_type(nodes, "VAEEncode")["pixels"])
+    assert node_by_id(graph, canvas_ref["images.image0"]) == sampled
+    # Other references (<ref_image_1>...) are resized to about 1 MP, appended after the canvas
+    assert extra_ref["resolution"] == "resize"
+    assert extra_ref["resolution.megapixels"] == pytest.approx(1.0)
+    assert [k for k in extra_ref if k.startswith("images.")] == ["images.image0"]
+    assert node_by_id(graph, extra_ref["positive"])["inputs"] == canvas_ref
+    assert node_by_id(graph, canvas_ref["vae"])["class_type"] == "VAELoader"
     # References go to the positive and the zeroed negative
-    assert node_by_id(graph, ref["negative"])["class_type"] == "ConditioningZeroOut"
-    guider = next(n["inputs"] for n in nodes if n["class_type"] == "BasicGuider")
-    assert node_by_id(graph, guider["conditioning"])["class_type"] == "ReferenceMultiLatent"
+    assert node_by_id(graph, canvas_ref["negative"])["class_type"] == "ConditioningZeroOut"
+    guider = by_type(nodes, "BasicGuider")
+    assert node_by_id(graph, guider["conditioning"])["inputs"] == extra_ref
     assert not any(n["class_type"] == "ReferenceLatent" for n in nodes)
+    assert len([n for n in nodes if n["class_type"] == "SamplerCustomAdvanced"]) == 1
+
+
+def by_type(nodes: list[dict], class_type: str):
+    matches = [n["inputs"] for n in nodes if n["class_type"] == class_type]
+    assert len(matches) == 1, f"{class_type}: {len(matches)} nodes"
+    return matches[0]
+
+
+def samplers(graph: dict):
+    """Inputs of each SamplerCustomAdvanced with its guider conditioning and sigmas."""
+    result = []
+    for node in graph.values():
+        if node["class_type"] == "SamplerCustomAdvanced":
+            guider = node_by_id(graph, node["inputs"]["guider"])
+            sigmas = node_by_id(graph, node["inputs"]["sigmas"])
+            result.append((node["inputs"], guider["inputs"]["conditioning"], sigmas))
+    return result
+
+
+def scale_extents(nodes: list[dict]):
+    return [
+        Extent(n["inputs"]["width"], n["inputs"]["height"])
+        for n in nodes
+        if n["class_type"] == "ImageScale"
+    ]
+
+
+def assert_second_pass(graph: dict, base: Extent, canvas: Extent):
+    nodes = graph_nodes(graph)
+    (_, first_cond, first_sigmas), (second, second_cond, second_sigmas) = samplers(graph)
+    # Base pass at about 1 MP, full denoise
+    assert base.pixel_count <= 1.2 * 2**20
+    assert first_sigmas["class_type"] == "BasicScheduler"
+    # Upscale with the upscale model, resize to the exact canvas size
+    assert any(n["class_type"] == "ImageUpscaleWithModel" for n in nodes)
+    assert canvas in scale_extents(nodes)
+    second_latent = node_by_id(graph, second["latent_image"])
+    assert second_latent["class_type"] == "VAEEncode"
+    upscaled = node_by_id(graph, second_latent["inputs"]["pixels"])
+    assert upscaled["class_type"] == "ImageScale"
+    assert Extent(upscaled["inputs"]["width"], upscaled["inputs"]["height"]) == canvas
+    # Second pass: same conditioning, 0.3 of the 16 steps
+    assert second_cond == first_cond
+    assert second_sigmas["class_type"] == "SplitSigmas"
+    assert second_sigmas["inputs"]["step"] == 11
+    scheduler = node_by_id(graph, second_sigmas["inputs"]["sigmas"])
+    assert scheduler["inputs"]["steps"] == 16
+    return first_cond
+
+
+def test_flux3_large_edit_uses_two_passes():
+    canvas = Extent(1408, 1408)
+    reference = Image.create(Extent(900, 1400))
+    work, client = edit_work([ControlInput(ControlMode.reference, reference)], canvas=canvas)
+    assert work.images is not None
+    extent = work.images.extent
+    assert extent.initial == Extent(1024, 1024)
+    assert extent.desired == extent.target == canvas
+    assert work.images.initial_image is not None
+    assert work.images.initial_image.extent == extent.initial  # canvas scaled down once
+    graph = create(work, client.models).root
+    cond = assert_second_pass(graph, extent.initial, canvas)
+    # The conditioning of both passes holds the references: canvas then reference layer
+    nodes = graph_nodes(graph)
+    refs = [n["inputs"] for n in nodes if n["class_type"] == "ReferenceMultiLatent"]
+    assert len(refs) == 2
+    assert node_by_id(graph, cond)["inputs"] == refs[1]
+    canvas_image = node_by_id(graph, refs[0]["images.image0"])
+    assert canvas_image["class_type"] == "ETN_LoadImageCache"  # 1024x1024, the sampled size
+    first_latent = node_by_id(graph, samplers(graph)[0][0]["latent_image"])
+    assert node_by_id(graph, first_latent["inputs"]["pixels"]) == canvas_image
+    assert texts_of(nodes) == ["make it night"]  # encoded once
+
+
+def texts_of(nodes: list[dict]):
+    return [n["inputs"]["text"] for n in nodes if n["class_type"] == "CLIPTextEncode"]
+
+
+def test_flux3_large_generate_uses_two_passes():
+    canvas = Extent(1408, 1408)
+    client = flux3_client()
+    work = prepare(
+        WorkflowKind.generate,
+        canvas,
+        ConditioningInput("a red fox in fresh snow"),
+        flux3_style(),
+        1234,
+        client.models,
+        FileLibrary(FileCollection(), FileCollection()),
+        PerformanceSettings(batch_size=1),
+    )
+    assert work.images is not None
+    assert work.images.extent.initial == Extent(1024, 1024)
+    graph = create(work, client.models).root
+    nodes = graph_nodes(graph)
+    assert by_type(nodes, "EmptyFlux2LatentImage")["width"] == 1024
+    assert_second_pass(graph, work.images.extent.initial, canvas)
+    assert texts_of(nodes) == ["a red fox in fresh snow"]
+
+
+def test_flux3_large_selection_edit_uses_two_passes():
+    canvas = Extent(1408, 1408)
+    client = flux3_client()
+    mask = Mask.rectangle(Bounds(300, 300, 600, 600), Bounds(0, 0, *canvas))
+    work = prepare(
+        WorkflowKind.refine_region,
+        Image.create(canvas),
+        ConditioningInput("make the cloak red", edit_reference=True),
+        flux3_style(),
+        1234,
+        client.models,
+        FileLibrary(FileCollection(), FileCollection()),
+        PerformanceSettings(batch_size=1),
+        mask=mask,
+        strength=1.0,
+        inpaint=InpaintParams(InpaintMode.custom, mask.bounds),
+    )
+    assert work.images is not None
+    graph = create(work, client.models).root
+    cond = assert_second_pass(graph, work.images.extent.initial, canvas)
+    ref = node_by_id(graph, cond)
+    assert ref["class_type"] == "ReferenceMultiLatent"
+    assert ref["inputs"]["resolution"] == "keep resolution"
+
+
+def test_flux3_small_canvas_and_weak_refine_use_one_pass():
+    for canvas, strength in [(Extent(1024, 1024), 1.0), (Extent(1408, 1408), 0.5)]:
+        work, client = edit_work([], canvas=canvas, strength=strength)
+        assert work.images is not None
+        assert work.images.extent.initial == work.images.extent.desired == canvas
+        graph = create(work, client.models).root
+        assert len(samplers(graph)) == 1
 
 
 def test_flux3_reference_names_start_at_zero():
@@ -278,7 +433,8 @@ def test_flux3_resolution(canvas):
     initial = work.images.extent.initial
     assert initial.width % 16 == 0 and initial.height % 16 == 0
     assert min(initial.width, initial.height) >= 512
-    assert initial.pixel_count <= 2048**2
+    assert initial.pixel_count <= 1.2 * 2**20
+    assert work.images.extent.desired.pixel_count >= initial.pixel_count
 
 
 def test_flux3_arch_capabilities():
