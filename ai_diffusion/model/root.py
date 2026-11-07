@@ -22,6 +22,7 @@ from ..ui.theme import checkpoint_icon
 from ..util import client_logger as log
 from .connection import Connection, ConnectionState
 from .custom_workflow import WorkflowCollection
+from .inbox import apply_inbox_settings
 from .model import DocumentModel
 from .updates import AutoUpdate
 
@@ -65,6 +66,10 @@ class Root(QObject):
         self._recent.track(model)
         model_entry.sync = ModelSync(model)
         import_prompt_from_file(model)
+        try:  # pictures sent from the website bring their prompt, LoRAs and model
+            apply_inbox_settings(model, self._connection.client_if_connected)
+        except Exception as e:
+            log.warning(f"Could not apply the website picture settings: {e}")
         self.model_created.emit(model)
         return model
 

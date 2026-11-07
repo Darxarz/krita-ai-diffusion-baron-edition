@@ -1,13 +1,22 @@
 import asyncio
 import hashlib
 import json
+from collections import UserList
 
 import pytest
 from aiohttp import web
 
 from ai_diffusion.backend.orchestrion_inbox import InboxAPI, InboxError, InboxItem
 from ai_diffusion.image import Extent, Image
-from ai_diffusion.model.inbox import Inbox, parse_document_info, return_key
+from ai_diffusion.model import inbox as inbox_module
+from ai_diffusion.model.inbox import (
+    Inbox,
+    append_weighted_lora,
+    apply_inbox_settings,
+    document_info,
+    parse_document_info,
+    return_key,
+)
 from ai_diffusion.settings import settings
 
 from .conftest import qtapp
@@ -365,3 +374,142 @@ def test_document_info_roundtrip():
     assert parse_document_info(b"garbage") is None
     assert parse_document_info(b'{"id": 5}') is None
     assert parse_document_info(None) is None
+
+
+meta = {
+    "prompt": "duo, lifting by collar, best quality",
+    "negative": "blurry, low quality",
+    "model": "illustrious\\Baron d_00001_.safetensors",
+    "checkpoint": "illustrious\\Baron d_00001_.safetensors",
+    "loras": [
+        {"name": "vore\\Belly.safetensors", "strength": 0.8},
+        {"name": "temporal\\character\\user-25\\Cain.safetensors", "strength": 1},
+        {"name": "missing\\Gone.safetensors", "strength": 0.5},
+    ],
+    "seed": 1234,
+    "steps": 28,
+    "cfg": 4.6,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+}
+
+
+class FakeDocument:
+    def __init__(self, info: dict | None):
+        self.annotations = {}
+        if info is not None:
+            self.annotations["orchestrion_inbox"] = json.dumps(info).encode("utf-8")
+
+    def find_annotation(self, key):
+        return self.annotations.get(key)
+
+    def annotate(self, key, value):
+        self.annotations[key] = bytes(value)
+
+
+class FakeRegions:
+    positive = "old prompt"
+    negative = "old negative"
+
+
+class FakeModel:
+    def __init__(self, info):
+        self.document = FakeDocument(info)
+        self.regions = FakeRegions()
+        self.seed = 0
+        self.style = None
+
+
+class FakeCheckpoint:
+    arch = "sdxl-arch"
+
+
+class FakeModels:
+    loras = ("vore\\Belly.safetensors", "temporal\\character\\user-25\\Cain.safetensors")
+
+    def __init__(self):
+        self.checkpoints = {"illustrious\\Baron d_00001_.safetensors": FakeCheckpoint()}
+
+
+class FakeClient:
+    def __init__(self):
+        self.models = FakeModels()
+
+    def supports_arch(self, arch):
+        return True
+
+
+class FakeStyle:
+    def __init__(self):
+        self.checkpoints, self.architecture, self.name = [], None, ""
+        self.sampler, self.sampler_steps, self.cfg_scale = "", 20, 7.0
+        self.saved = False
+
+    def save(self):
+        self.saved = True
+
+
+class FakeStyles(UserList):
+    class Signal:
+        def emit(self):
+            pass
+
+    changed = Signal()
+
+    def create(self, filename, copy_from=None):
+        style = FakeStyle()
+        self.append(style)
+        return style
+
+
+def test_document_info_keeps_generation_meta():
+    item = InboxItem.from_dict({
+        "id": "a",
+        "imageUrl": "/api/krita/inbox/a/image",
+        "sha256": "0" * 64,
+        "meta": meta,
+    })
+    info = parse_document_info(document_info(item, "https://orchestrion.ink"))
+    assert info is not None and info["meta"]["checkpoint"] == meta["checkpoint"]
+
+
+def test_weighted_lora_is_appended_once():
+    prompt = append_weighted_lora("a cat", "vore\\Belly.safetensors", 0.8)
+    assert prompt == "a cat <lora:vore/Belly:0.8>"
+    assert append_weighted_lora(prompt, "vore/belly", 1.0) == prompt
+    assert append_weighted_lora("", "style.safetensors") == "<lora:style>"
+
+
+def test_inbox_settings_apply_once(monkeypatch):
+    styles = FakeStyles()
+    monkeypatch.setattr(inbox_module.Styles, "list", staticmethod(lambda: styles))
+    monkeypatch.setattr(inbox_module, "resolve_arch", lambda style, client: "sdxl-arch")
+    model = FakeModel({"id": "a", "origin": "https://orchestrion.ink", "meta": meta})
+    assert apply_inbox_settings(model, FakeClient())
+    assert model.regions.positive == (
+        "duo, lifting by collar, best quality <lora:vore/Belly:0.8>"
+        " <lora:temporal/character/user-25/Cain>"
+    )
+    assert model.regions.negative == "blurry, low quality"
+    assert model.seed == 1234
+    style = model.style
+    assert isinstance(style, FakeStyle) and style.saved
+    assert style.checkpoints == [meta["checkpoint"]]
+    assert (style.sampler_steps, style.cfg_scale) == (28, pytest.approx(4.6))
+    assert style.sampler == "Default - DPM++ 2M"
+    assert json.loads(model.document.annotations["orchestrion_inbox"])["applied"] is True
+    model.regions.positive = "edited by the user"
+    assert not apply_inbox_settings(model, FakeClient())
+    assert model.regions.positive == "edited by the user"
+
+
+def test_inbox_settings_offline_keep_style():
+    model = FakeModel({"id": "a", "origin": "x", "meta": meta})
+    assert apply_inbox_settings(model, None)
+    assert "<lora:missing/Gone:0.5>" in model.regions.positive  # unknown offline, kept
+    assert model.style is None
+
+
+def test_inbox_settings_ignore_documents_without_meta():
+    assert not apply_inbox_settings(FakeModel(None), FakeClient())
+    assert not apply_inbox_settings(FakeModel({"id": "a", "origin": "x"}), FakeClient())
