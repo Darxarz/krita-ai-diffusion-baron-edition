@@ -1,6 +1,6 @@
 """Generative AI plugin for Krita"""
 
-__version__ = "1.53.0-baron.25"
+__version__ = "1.53.0-baron.26"
 __edition__ = "Krita AI Diffusion Baron Edition"
 
 import importlib.util
