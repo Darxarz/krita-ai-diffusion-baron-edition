@@ -57,6 +57,7 @@ from ..style import Styles
 from ..util import ensure, flatten, sequence_equal
 from . import theme
 from .orchestrion import OrchestrionBar
+from .prompt_assistant import KadanceDialog
 from .region import RegionPromptWidget
 from .widget import (
     ErrorBox,
@@ -752,6 +753,10 @@ class GenerationWidget(QWidget):
         style_layout = QHBoxLayout()
         style_layout.addWidget(self.workspace_select)
         style_layout.addWidget(self.style_select)
+        self.kadance_button = QPushButton(_("Kadance…"), self)
+        self.kadance_button.setToolTip(_("Improve the prompt using the canvas and references"))
+        self.kadance_button.clicked.connect(self.show_kadance)
+        style_layout.addWidget(self.kadance_button)
         layout.addLayout(style_layout)
 
         self.region_prompt = RegionPromptWidget(self)
@@ -864,6 +869,10 @@ class GenerationWidget(QWidget):
             self.strength_slider.model = model
             self.history.model_ = model
             self.update_generate_options()
+
+    def show_kadance(self):
+        dialog = KadanceDialog(self.model, self)
+        dialog.exec()
 
     def apply_result(self, item: QListWidgetItem):
         job_id, index = self.history.item_info(item)

@@ -161,6 +161,14 @@ class OrchestrionAPI:
     async def account(self):
         return await self.requests.get(f"{self.url}/api/krita/account", timeout=15)
 
+    async def prompt_assist(self, data: dict):
+        from .prompt_assistant import PromptSuggestion
+
+        result = await self.requests.http(
+            "POST", f"{self.url}/api/krita/prompt-assist", data, timeout=100
+        )
+        return PromptSuggestion.from_dict(result)
+
     async def catalog(self):
         return (await self.requests.get(f"{self.url}/api/krita/models", timeout=30))["items"]
 
