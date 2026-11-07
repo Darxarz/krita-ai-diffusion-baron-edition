@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/images/baron-hero.svg" alt="Krita Baron Edition" width="100%"></p>
 
-# Krita AI Diffusion вЂ” Baron Edition
+# Krita AI Diffusion — Baron Edition
 
 A desktop fork of [Acly's Krita AI Diffusion](https://github.com/Acly/krita-ai-diffusion),
 with a companion native Android edition. Generate, inpaint, edit, upscale and use
