@@ -4,16 +4,21 @@ import asyncio
 import hashlib
 import json
 import platform
+import re
 from collections.abc import Callable
+from pathlib import Path
 from time import monotonic
 from uuid import uuid4
 
 from PyQt5.QtCore import QByteArray, QObject, pyqtSignal
 
+from ..backend.client import resolve_arch
 from ..backend.orchestrion_inbox import InboxAPI, InboxChanges, InboxError, InboxItem
 from ..image import Image
 from ..localization import translate as _
 from ..settings import settings
+from ..style import SamplerPresets, Styles
+from ..text import pattern_lora
 from ..util import client_logger as log
 
 # Called with the downloaded picture, a document name and the annotation which links the
@@ -50,7 +55,95 @@ def document_info(item: InboxItem, origin: str):
         "returnTarget": item.return_target,
         "origin": origin,
     }
+    if item.meta:
+        info["meta"] = item.meta  # generation settings, applied once to the new document
     return QByteArray(json.dumps(info, ensure_ascii=False).encode("utf-8"))
+
+
+def _lora_key(name: str):
+    name = name.replace("\\", "/").strip()
+    return re.sub(r"\.(safetensors|ckpt|pt)$", "", name, flags=re.IGNORECASE).casefold()
+
+
+def append_weighted_lora(prompt: str, name: str, strength: float = 1.0):
+    key = _lora_key(name)
+    if not key or any(char in key for char in "<>:\r\n"):
+        return prompt
+    if any(_lora_key(match[1]) == key for match in pattern_lora.finditer(prompt)):
+        return prompt
+    tag = re.sub(
+        r"\.(safetensors|ckpt|pt)$", "", name.replace("\\", "/").strip(), flags=re.IGNORECASE
+    )
+    weight = "" if abs(strength - 1.0) < 1e-6 else f":{strength:g}"
+    return prompt + (" " if prompt and not prompt[-1].isspace() else "") + f"<lora:{tag}{weight}>"
+
+
+def _sampler_preset(sampler: str, scheduler: str):
+    for name, preset in SamplerPresets.instance().items():
+        if preset.sampler == sampler and preset.scheduler == scheduler and not preset.lora:
+            return name
+    return None
+
+
+def apply_inbox_settings(model, client) -> bool:
+    """Puts the prompt, negative, LoRAs, seed and model/sampler of a picture received from the
+    website into its new document, once. Returns True when something was applied."""
+    find = getattr(model.document, "find_annotation", None)
+    info = parse_document_info(find("orchestrion_inbox") if find else None)
+    meta = info.get("meta") if info else None
+    if not info or info.get("applied") or not isinstance(meta, dict):
+        return False
+    models = getattr(client, "models", None)
+    available = {_lora_key(name): name for name in (models.loras if models else [])}
+    prompt = str(meta.get("prompt") or "")
+    for lora in meta.get("loras") or []:
+        if not isinstance(lora, dict) or not isinstance(lora.get("name"), str):
+            continue
+        if models is not None and _lora_key(lora["name"]) not in available:
+            log.info(f"Inbox: LoRA {lora['name']} is not installed, skipped")
+            continue
+        try:
+            strength = float(lora.get("strength", 1.0))
+        except (TypeError, ValueError):
+            strength = 1.0
+        name = available.get(_lora_key(lora["name"]), lora["name"])
+        prompt = append_weighted_lora(prompt, name, strength)
+    model.regions.positive = prompt
+    if isinstance(meta.get("negative"), str):
+        model.regions.negative = meta["negative"]
+    if isinstance(meta.get("seed"), int) and meta["seed"] >= 0:
+        model.seed = meta["seed"]
+    checkpoint = meta.get("checkpoint") or meta.get("model")
+    if models is not None and isinstance(checkpoint, str) and checkpoint in models.checkpoints:
+        arch = models.checkpoints[checkpoint].arch
+        if client.supports_arch(arch):
+            styles = Styles.list()
+            current = model.style
+            source = (
+                current
+                if resolve_arch(current, client) is arch
+                else next((s for s in styles if resolve_arch(s, client) is arch), current)
+            )
+            style = styles.create("orchestrion.json", copy_from=source)
+            style.checkpoints = [checkpoint]
+            style.architecture = arch
+            style.name = Path(checkpoint.replace("\\", "/")).stem
+            if isinstance(meta.get("steps"), int):
+                style.sampler_steps = meta["steps"]
+            if isinstance(meta.get("cfg"), (int, float)):
+                style.cfg_scale = float(meta["cfg"])
+            if preset := _sampler_preset(
+                str(meta.get("sampler", "")), str(meta.get("scheduler", ""))
+            ):
+                style.sampler = preset
+            style.save()
+            styles.changed.emit()
+            model.style = style
+    info["applied"] = True
+    model.document.annotate(
+        "orchestrion_inbox", QByteArray(json.dumps(info, ensure_ascii=False).encode("utf-8"))
+    )
+    return True
 
 
 def parse_document_info(data: QByteArray | bytes | None) -> dict | None:
