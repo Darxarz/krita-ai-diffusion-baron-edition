@@ -4,3 +4,5 @@ scripts/docker/* text eof=lf
 scripts/docker/nginx/* text eof=lf
 *.sh -text
 Dockerfile -text
+# Font files and their upstream licenses are kept byte-for-byte (manifest.json hashes them)
+ai_diffusion/fonts/** -text
