@@ -12,6 +12,7 @@ from krita import Krita
 from PyQt5.QtCore import QByteArray
 
 from ai_diffusion.backend.api import FillMode, InpaintMode
+from ai_diffusion.backend.resources import ControlMode
 from ai_diffusion.document import KritaDocument
 from ai_diffusion.image import Bounds, Extent, Image, ImageCollection
 from ai_diffusion.model.connection import Connection
@@ -344,3 +345,73 @@ async def test_baron_archive_keeps_evicted_results(workflows_dir: Path):
         assert document.annotation("ai_diffusion/result0.webp").size() == 0
     finally:
         settings.history_size, settings.history_storage = previous
+
+
+@pytest.fixture()
+def root_connection():
+    from ai_diffusion.model.root import root as plugin_root
+
+    connection = Connection()
+    previous = getattr(plugin_root, "_connection", None)
+    plugin_root._connection = connection
+    yield connection
+    if previous is None:
+        del plugin_root._connection
+    else:
+        plugin_root._connection = previous
+
+
+@pytest.mark.parametrize("key_order", ["declaration", "alphabetical"])
+@qtapp
+async def test_control_layer_custom_strength(
+    workflows_dir: Path, root_connection: Connection, key_order: str
+):
+    """Custom strength & range of control layers must survive save/load (upstream #2621), also
+    for documents stored by older versions which wrote properties in alphabetical order."""
+
+    krita_doc = Krita.instance().openDocument("test")
+    model1 = _make_model(krita_doc, workflows_dir)
+    region = model1.regions.emplace()
+    for control in (model1.regions.control.emplace(), region.control.emplace()):
+        control.mode = ControlMode.pose
+        control.preset_value = 3
+        control.use_custom_strength = True
+        control.strength = 20
+        control.start = 0.1
+        control.end = 0.5
+    ModelSync(model1)._save()
+
+    if key_order == "alphabetical":
+        state_bytes = model1.document.find_annotation("ui.json")
+        assert state_bytes is not None
+        state = json.loads(state_bytes.data().decode("utf-8"))
+        state["control"] = [dict(sorted(c.items())) for c in state["control"]]
+        for r in state["regions"]:
+            r["control"] = [dict(sorted(c.items())) for c in r["control"]]
+        model1.document.annotate("ui.json", QByteArray(json.dumps(state).encode("utf-8")))
+
+    Krita.instance().setActiveDocument(krita_doc)
+    doc2 = KritaDocument(krita_doc, None)
+    model2 = DocumentModel(
+        doc2, root_connection, WorkflowCollection(root_connection, folder=workflows_dir)
+    )
+    _sync2 = ModelSync(model2)
+
+    region2 = next(iter(model2.regions))
+    for control in (model2.regions.control[0], region2.control[0]):
+        assert control.mode is ControlMode.pose
+        assert control.preset_value == 3
+        assert control.use_custom_strength
+        assert control.strength == 20
+        assert control.start == pytest.approx(0.1)
+        assert control.end == pytest.approx(0.5)
+
+
+@qtapp
+async def test_large_seed_is_kept(workflows_dir: Path):
+    """Seeds go up to 2**32 - 1; a C int signal used to truncate values above 2**31."""
+    model = _make_model(Krita.instance().openDocument("test"), workflows_dir)
+    received = []
+    model.seed_changed.connect(received.append)
+    model.seed = 3_000_000_000
+    assert model.seed == 3_000_000_000 and received == [3_000_000_000]

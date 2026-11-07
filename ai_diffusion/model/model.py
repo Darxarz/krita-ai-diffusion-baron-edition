@@ -155,7 +155,7 @@ class DocumentModel(QObject, ObservableProperties):
     region_only_changed = pyqtSignal(bool)
     edit_mode_changed = pyqtSignal(bool)
     batch_count_changed = pyqtSignal(int)
-    seed_changed = pyqtSignal(int)
+    seed_changed = pyqtSignal("qlonglong")  # C int would truncate seeds above 2**31
     fixed_seed_changed = pyqtSignal(bool)
     resolution_multiplier_changed = pyqtSignal(float)
     queue_mode_changed = pyqtSignal(QueueMode)
@@ -1261,7 +1261,7 @@ class LiveWorkspace(QObject, ObservableProperties):
     is_active_changed = pyqtSignal(bool)
     is_recording_changed = pyqtSignal(bool)
     strength_changed = pyqtSignal(float)
-    seed_changed = pyqtSignal(int)
+    seed_changed = pyqtSignal("qlonglong")  # C int would truncate seeds above 2**31
     has_result_changed = pyqtSignal(bool)
     result_available = pyqtSignal(Image)
     modified = pyqtSignal(QObject, str)
