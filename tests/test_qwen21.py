@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from ai_diffusion.backend import workflow
 from ai_diffusion.backend.api import (
     CheckpointInput,
     ConditioningInput,
@@ -371,3 +372,67 @@ async def test_baron_updater_does_not_replace_fork(tmp_path):
     with pytest.raises(ValueError, match="Baron version"):
         await updater._check()
     assert updater._package is None
+
+
+turbo_name = "Qwen21\\qwen_image_2.1_turbo_int8_convrot.safetensors"
+
+
+def test_qwen21_turbo_scheduler_uses_fixed_sigmas():
+    w = ComfyWorkflow()
+    model = w.load_diffusion_model(turbo_name)
+    w.scheduler_sigmas(model, "qwen21_turbo", 8, Arch.qwen2)
+    manual = [n for n in w.root.values() if n["class_type"] == "ManualSigmas"]
+    assert len(manual) == 1
+    assert manual[0]["inputs"]["sigmas"] == (
+        "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
+    )
+    assert not any(n["class_type"] == "BasicScheduler" for n in w.root.values())
+
+
+def test_qwen21_turbo_sampler_override():
+    turbo = CheckpointInput(turbo_name, Arch.qwen2)
+    sampling = SamplingInput("dpmpp_2m", "karras", 5.5, 20, 10, 42)
+    workflow._fix_qwen21_turbo(turbo, sampling)
+    assert (sampling.sampler, sampling.scheduler) == ("euler", "qwen21_turbo")
+    assert (sampling.total_steps, sampling.start_step) == (8, 4)
+
+    base = CheckpointInput(model_name, Arch.qwen2)
+    unchanged = SamplingInput("dpmpp_2m", "karras", 5.5, 20, 10, 42)
+    workflow._fix_qwen21_turbo(base, unchanged)
+    assert (unchanged.sampler, unchanged.scheduler, unchanged.total_steps) == (
+        "dpmpp_2m",
+        "karras",
+        20,
+    )
+
+    zimage = CheckpointInput("z_image_turbo_fp8_e4m3fn.safetensors", Arch.zimage)
+    other = SamplingInput("euler_ancestral", "sgm_uniform", 1.0, 8, 0, 7)
+    workflow._fix_qwen21_turbo(zimage, other)
+    assert (other.sampler, other.scheduler) == ("euler_ancestral", "sgm_uniform")
+
+
+@pytest.mark.parametrize("name,turbo", [(turbo_name, True), (model_name, False)])
+def test_qwen21_turbo_graph(name, turbo):
+    client = ComfyClient("http://localhost:8188")
+    nodes = ComfyObjectInfo({
+        "UNETLoader": {"input": {"required": {"unet_name": [[name]]}}},
+        "CLIPLoader": {"input": {"required": {"clip_name": [[encoder_name]]}}},
+        "VAELoader": {"input": {"required": {"vae_name": [[vae_name]]}}},
+    })
+    client._refresh_models(nodes, {}, {name: {"base_model": "unknown"}})
+    models = client.models
+    models.resources.update(_find_text_encoder_models([encoder_name]))
+    models.resources.update(_find_vae_models([vae_name]))
+    work = WorkflowInput(
+        WorkflowKind.generate,
+        models=CheckpointInput(name, Arch.qwen2),
+        images=ImageInput.from_extent(Extent(512, 512)),
+        conditioning=ConditioningInput("a red apple"),
+        sampling=SamplingInput("euler", "simple", 1.0, 25),
+    )
+    types = [node["class_type"] for node in create(work, models).root.values()]
+    assert ("ManualSigmas" in types) is turbo
+    assert ("BasicScheduler" in types) is not turbo
+    style = Style.load(Path(__file__).parents[1] / "ai_diffusion/styles/qwen-image-2-1-turbo.json")
+    assert style is not None
+    assert (style.preferred_checkpoint(models.checkpoints) == name) is turbo
