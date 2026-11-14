@@ -765,6 +765,7 @@
     "The proposed prompt will appear here. You can edit it before inserting.": "Здесь появится предложенный промпт. Его можно исправить перед вставкой.",
     "Undo insertion": "Отменить вставку",
     "Use this prompt": "Использовать промпт",
-    "Select an available model before asking Kadance": "Перед обращением к Кадансу выбери доступную модель"
+    "Select an available model before asking Kadance": "Перед обращением к Кадансу выбери доступную модель",
+    "Type to search styles": "Начните вводить, чтобы найти стиль"
   }
 }

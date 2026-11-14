@@ -765,6 +765,7 @@
     "The proposed prompt will appear here. You can edit it before inserting.": "The proposed prompt will appear here. You can edit it before inserting.",
     "Undo insertion": "Undo insertion",
     "Use this prompt": "Use this prompt",
-    "Select an available model before asking Kadance": null
+    "Select an available model before asking Kadance": null,
+    "Type to search styles": "Digita per cercare gli stili"
   }
 }

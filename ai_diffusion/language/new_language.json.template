@@ -693,6 +693,7 @@
     "Translation is disabled. Click to enable prompt translation from your language to English": null,
     "Tried to capture the current image, but there are no visible layers! Preview and control layers are not considered to be part of the input image.": null,
     "Trigger words": null,
+    "Type to search styles": null,
     "URL used to connect to a running ComfyUI server. Default is 127.0.0.1:8188 (local).": null,
     "Unblur": null,
     "Undo insertion": null,
